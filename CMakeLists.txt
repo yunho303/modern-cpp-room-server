@@ -32,7 +32,11 @@ else()
             $<$<BOOL:${MCRS_WARNINGS_AS_ERRORS}>:-Werror>)
 endif()
 
-add_library(mcrs_protocol src/protocol/packet_codec.cpp)
+add_library(
+    mcrs_protocol
+    src/protocol/packet_codec.cpp
+    include/mcrs/protocol/packet_codec.hpp
+)
 target_include_directories(mcrs_protocol PUBLIC include)
 target_link_libraries(mcrs_protocol PUBLIC mcrs_project_options)
 
