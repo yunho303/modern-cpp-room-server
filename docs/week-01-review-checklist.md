@@ -15,4 +15,4 @@
 
 - 최대 payload를 32 KiB로 변경하고 테스트도 함께 수정합니다.
 - 새로운 PacketType을 추가하고 unknown type 테스트가 계속 유효한지 확인합니다.
-- sequence를 64-bit로 변경할 때 wire format과 테스트가 어떻게 달라지는지 설명합니다.
+- PacketType의 underlying type을 32-bit로 변경할 때 wire format과 테스트가 어떻게 달라지는지 설명합니다.

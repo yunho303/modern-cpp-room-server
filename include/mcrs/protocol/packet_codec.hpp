@@ -18,16 +18,15 @@ enum class PacketType : std::uint16_t
     leave_room = 5,
 };
 
-inline constexpr std::size_t wire_header_size = 10;
+inline constexpr std::size_t wire_header_size = 6;
 inline constexpr std::uint32_t max_payload_size = 64U * 1024U;
 
 struct PacketHeader
 {
     std::uint32_t payload_size{};
     PacketType type{};
-    std::uint32_t sequence{};
 
-    auto operator<=>(const PacketHeader&) const = default;
+    bool operator==(const PacketHeader&) const = default;
 };
 
 enum class DecodeError
@@ -55,7 +54,7 @@ struct PacketView
 [[nodiscard]] std::expected<PacketView, DecodeError> decode_one(std::span<const std::byte> bytes) noexcept;
 
 [[nodiscard]] std::expected<std::vector<std::byte>, EncodeError>
-encode_packet(PacketType type, std::uint32_t sequence, std::span<const std::byte> payload);
+encode_packet(PacketType type, std::span<const std::byte> payload);
 
 [[nodiscard]] bool is_incomplete(DecodeError error) noexcept;
 [[nodiscard]] std::string_view to_string(DecodeError error) noexcept;

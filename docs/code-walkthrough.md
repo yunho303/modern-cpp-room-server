@@ -8,7 +8,7 @@ decode하여 protocol 계층이 독립적으로 동작하는지만 보여줍니�
 ```text
 payload
   -> encode_packet
-  -> [payload size | packet type | sequence | payload]
+  -> [payload size | packet type | payload]
   -> decode_one
   -> PacketView
 ```
@@ -36,7 +36,7 @@ wire에 기록되는 16-bit packet 식별자입니다. `enum class`이므로 정
 
 ### PacketHeader
 
-논리적인 header 표현입니다. 실제 메모리 크기는 padding 때문에 10 bytes가 아닐 수 있으므로 구조체 자체를
+논리적인 header 표현입니다. 실제 메모리 크기는 padding 때문에 6 bytes가 아닐 수 있으므로 구조체 자체를
 전송하지 않습니다. 각 field를 고정된 offset에 별도로 기록합니다. 기본 spaceship operator는 테스트에서
 두 header를 한 번에 비교할 수 있게 합니다.
 
@@ -68,8 +68,8 @@ decode하기 위해 필요합니다.
 
 검증 순서는 다음과 같습니다.
 
-1. 고정 header 10 bytes가 도착했는지 확인합니다.
-2. payload size, packet type과 sequence를 big endian으로 읽습니다.
+1. 고정 header 6 bytes가 도착했는지 확인합니다.
+2. payload size와 packet type을 big endian으로 읽습니다.
 3. payload size가 64 KiB 제한을 넘는지 검사합니다.
 4. 허용된 packet type인지 검사합니다.
 5. header에 적힌 payload 전체가 도착했는지 확인합니다.
@@ -90,7 +90,7 @@ header field는 big endian으로 기록하고 payload는 `memcpy`합니다.
 ## 7. Demo executable
 
 `src/main.cpp`는 2-byte payload를 `ping` packet으로 encode하고 다시 decode합니다. `expected`를 boolean처럼
-검사하고 실패 시 `error()`를 문자열로 출력합니다. 성공 시 sequence와 payload 크기를 출력합니다.
+검사하고 실패 시 `error()`를 문자열로 출력합니다. 성공 시 packet type과 payload 크기를 출력합니다.
 
 이 코드는 서버가 아닙니다. protocol library의 가장 작은 사용 예이며, 다음 단계에서 Coroutine Session을
 실행하는 entry point로 교체합니다.

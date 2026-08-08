@@ -11,13 +11,12 @@ TCP는 한 번의 read와 한 패킷의 경계가 일치하지 않습니다. 헤
 
 ## Decision
 
-wire header는 padding에 영향을 받지 않는 10 bytes 고정 포맷으로 정의합니다.
+wire header는 padding에 영향을 받지 않는 6 bytes 고정 포맷으로 정의합니다.
 
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 4 | payload size, big endian |
 | 4 | 2 | packet type, big endian |
-| 6 | 4 | sequence, big endian |
 
 파서는 `std::span<const std::byte>`를 받아 다음 결과를 반환합니다.
 

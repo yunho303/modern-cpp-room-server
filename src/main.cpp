@@ -9,7 +9,7 @@ int main()
     using namespace mcrs::protocol;
 
     constexpr std::array payload{std::byte{0xCA}, std::byte{0xFE}};
-    const auto encoded = encode_packet(PacketType::ping, 1, payload);
+    const auto encoded = encode_packet(PacketType::ping, payload);
     if (!encoded)
     {
         std::cerr << "encode failed: " << to_string(encoded.error()) << '\n';
@@ -23,7 +23,7 @@ int main()
         return 1;
     }
 
-    std::cout << "decoded packet sequence=" << decoded->header.sequence
+    std::cout << "decoded packet type=" << static_cast<std::uint16_t>(decoded->header.type)
               << " payload=" << decoded->payload.size() << " bytes\n";
     return 0;
 }

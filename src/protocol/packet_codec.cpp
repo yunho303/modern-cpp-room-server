@@ -65,7 +65,6 @@ std::expected<PacketView, DecodeError> decode_one(std::span<const std::byte> byt
 
     const auto payload_size = read_big_endian<std::uint32_t>(bytes, 0);
     const auto type = static_cast<PacketType>(read_big_endian<std::uint16_t>(bytes, 4));
-    const auto sequence = read_big_endian<std::uint32_t>(bytes, 6);
 
     if (payload_size > max_payload_size)
     {
@@ -84,14 +83,14 @@ std::expected<PacketView, DecodeError> decode_one(std::span<const std::byte> byt
     }
 
     return PacketView{
-        .header = PacketHeader{.payload_size = payload_size, .type = type, .sequence = sequence},
+        .header = PacketHeader{.payload_size = payload_size, .type = type},
         .payload = bytes.subspan(wire_header_size, payload_size),
         .consumed_bytes = total_size,
     };
 }
 
 std::expected<std::vector<std::byte>, EncodeError>
-encode_packet(PacketType type, std::uint32_t sequence, std::span<const std::byte> payload)
+encode_packet(PacketType type, std::span<const std::byte> payload)
 {
     if (payload.size() > max_payload_size || payload.size() > std::numeric_limits<std::uint32_t>::max())
     {
@@ -108,7 +107,6 @@ encode_packet(PacketType type, std::uint32_t sequence, std::span<const std::byte
 
     write_big_endian<std::uint32_t>(output, 0, static_cast<std::uint32_t>(payload.size()));
     write_big_endian<std::uint16_t>(output, 4, static_cast<std::uint16_t>(type));
-    write_big_endian<std::uint32_t>(output, 6, sequence);
 
     if (!payload.empty())
     {
