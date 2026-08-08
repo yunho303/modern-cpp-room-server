@@ -40,6 +40,7 @@ ctest --preset debug
 ## Documents
 
 - [Architecture](docs/architecture.md)
+- [Code walkthrough](docs/code-walkthrough.md)
 - [C++ language level decision](docs/decisions/0001-cpp-language-level.md)
 - [Packet framing decision](docs/decisions/0002-packet-framing.md)
 - [Week 1 review checklist](docs/week-01-review-checklist.md)
