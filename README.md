@@ -7,7 +7,7 @@
 ## Current milestone
 
 - [x] C++23 빌드 환경과 엄격한 컴파일러 경고
-- [ ] 길이 기반 패킷 프레이밍과 명시적 오류 모델
+- [x] 길이 기반 패킷 프레이밍과 명시적 오류 모델
 - [ ] Coroutine 기반 비동기 TCP Session
 - [ ] I/O 스레드와 Room Worker의 상태 소유권 분리
 - [ ] 봇 클라이언트와 성능 기준값 측정
@@ -37,3 +37,10 @@ ctest --preset debug
 3. 최적화는 기준값 측정과 프로파일링 이후에 수행합니다.
 4. 모든 기능은 실패, 취소, 종료 경로까지 테스트합니다.
 
+## Documents
+
+- [Architecture](docs/architecture.md)
+- [C++ language level decision](docs/decisions/0001-cpp-language-level.md)
+- [Packet framing decision](docs/decisions/0002-packet-framing.md)
+- [Week 1 review checklist](docs/week-01-review-checklist.md)
+- [AI usage](AI_USAGE.md)
