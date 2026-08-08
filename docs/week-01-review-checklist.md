@@ -13,6 +13,9 @@
 
 ## Hands-on changes
 
-- 최대 payload를 32 KiB로 변경하고 테스트도 함께 수정합니다.
-- 새로운 PacketType을 추가하고 unknown type 테스트가 계속 유효한지 확인합니다.
-- PacketType의 underlying type을 32-bit로 변경할 때 wire format과 테스트가 어떻게 달라지는지 설명합니다.
+- [x] TCP가 순서를 보장하는데 현재 `sequence`가 왜 필요한지 검토하고, 구체적인 용도가 없어 wire format과
+  구현에서 제거했습니다.
+- [ ] 최대 payload를 32 KiB로 변경한다면 함께 수정해야 할 코드와 테스트를 설명합니다.
+- [ ] PacketType의 underlying type을 32-bit로 변경할 때 wire format과 테스트가 어떻게 달라지는지 설명합니다.
+
+단순히 enum 값을 하나 추가하는 작업은 현재 설계 이해를 더 보여주지 않으므로 필수 과제에서 제외했습니다.

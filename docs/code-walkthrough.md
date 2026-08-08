@@ -37,8 +37,8 @@ wire에 기록되는 16-bit packet 식별자입니다. `enum class`이므로 정
 ### PacketHeader
 
 논리적인 header 표현입니다. 실제 메모리 크기는 padding 때문에 6 bytes가 아닐 수 있으므로 구조체 자체를
-전송하지 않습니다. 각 field를 고정된 offset에 별도로 기록합니다. 기본 spaceship operator는 테스트에서
-두 header를 한 번에 비교할 수 있게 합니다.
+전송하지 않습니다. 각 field를 고정된 offset에 별도로 기록합니다. 기본 `operator==`는 멤버 선언 순서대로
+동등 비교 코드를 생성하므로 테스트에서 두 header를 한 번에 비교할 수 있습니다.
 
 ### PacketView
 
@@ -128,4 +128,4 @@ expression의 파일과 line을 출력합니다.
 - 수신 버퍼의 보존, 압축과 backpressure 정책이 아직 없습니다.
 - packet payload schema와 command dispatch가 없습니다.
 - vector 할당 비용의 기준 성능을 아직 측정하지 않았습니다.
-- MSVC 이외의 CI 결과는 GitHub에 push한 뒤 확인해야 합니다.
+- Linux CI에서도 빌드와 테스트를 통과했지만, sanitizer와 실제 네트워크 부하 테스트는 아직 없습니다.
