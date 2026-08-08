@@ -1,0 +1,39 @@
+# Modern C++ Room Server
+
+현대 C++의 소유권, 오류 처리, 동시성 기능을 사용해 만드는 권위형(authoritative) Room 서버입니다.
+기능을 많이 나열하기보다 설계 판단을 기록하고, 부하 테스트와 프로파일링 결과로 최적화를 검증하는 것을
+목표로 합니다.
+
+## Current milestone
+
+- [x] C++23 빌드 환경과 엄격한 컴파일러 경고
+- [ ] 길이 기반 패킷 프레이밍과 명시적 오류 모델
+- [ ] Coroutine 기반 비동기 TCP Session
+- [ ] I/O 스레드와 Room Worker의 상태 소유권 분리
+- [ ] 봇 클라이언트와 성능 기준값 측정
+- [ ] 프로파일링 기반 최적화와 전후 비교
+
+## Non-goals for v0.1
+
+- 완성형 MMORPG 콘텐츠
+- 그래픽 클라이언트
+- DB, Redis, MSA 등 사용 이유가 아직 없는 인프라 추가
+- 측정 없이 적용하는 lock-free 자료구조와 메모리 풀
+
+## Build
+
+Visual Studio 2022와 CMake 3.25 이상이 필요합니다.
+
+```powershell
+cmake --preset vs2022
+cmake --build --preset debug
+ctest --preset debug
+```
+
+## Engineering principles
+
+1. 게임 상태는 소유자가 명확한 실행 흐름에서만 변경합니다.
+2. 객체 수명과 오류를 타입으로 표현하고 정상 흐름에서 숨기지 않습니다.
+3. 최적화는 기준값 측정과 프로파일링 이후에 수행합니다.
+4. 모든 기능은 실패, 취소, 종료 경로까지 테스트합니다.
+
