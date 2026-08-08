@@ -40,3 +40,9 @@ add_executable(mcrs_server src/main.cpp)
 target_link_libraries(mcrs_server PRIVATE mcrs_protocol)
 
 include(CTest)
+
+if(BUILD_TESTING)
+    add_executable(mcrs_protocol_tests tests/packet_codec_tests.cpp)
+    target_link_libraries(mcrs_protocol_tests PRIVATE mcrs_protocol)
+    add_test(NAME protocol.codec COMMAND mcrs_protocol_tests)
+endif()
