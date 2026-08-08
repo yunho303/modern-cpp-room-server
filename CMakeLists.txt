@@ -32,8 +32,11 @@ else()
             $<$<BOOL:${MCRS_WARNINGS_AS_ERRORS}>:-Werror>)
 endif()
 
+add_library(mcrs_protocol src/protocol/packet_codec.cpp)
+target_include_directories(mcrs_protocol PUBLIC include)
+target_link_libraries(mcrs_protocol PUBLIC mcrs_project_options)
+
 add_executable(mcrs_server src/main.cpp)
-target_link_libraries(mcrs_server PRIVATE mcrs_project_options)
+target_link_libraries(mcrs_server PRIVATE mcrs_protocol)
 
 include(CTest)
-
