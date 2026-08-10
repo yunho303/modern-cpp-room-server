@@ -8,6 +8,7 @@
 
 - [x] C++23 빌드 환경과 엄격한 컴파일러 경고
 - [x] 길이 기반 패킷 프레이밍과 명시적 오류 모델
+- [x] TCP read 결과를 누적하고 소비하는 수신 버퍼
 - [ ] Coroutine 기반 비동기 TCP Session
 - [ ] I/O 스레드와 Room Worker의 상태 소유권 분리
 - [ ] 봇 클라이언트와 성능 기준값 측정
@@ -43,6 +44,7 @@ ctest --preset debug
 - [Code walkthrough](docs/code-walkthrough.md)
 - [C++ language level decision](docs/decisions/0001-cpp-language-level.md)
 - [Packet framing decision](docs/decisions/0002-packet-framing.md)
+- [Session receive buffer decision](docs/decisions/0003-session-receive-buffer.md)
 - [Week 1 review checklist](docs/week-01-review-checklist.md)
 - [Week 1 learning notes](docs/week-01-learning-notes.md)
 - [Four-week roadmap](docs/roadmap.md)

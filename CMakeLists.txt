@@ -40,8 +40,16 @@ add_library(
 target_include_directories(mcrs_protocol PUBLIC include)
 target_link_libraries(mcrs_protocol PUBLIC mcrs_project_options)
 
+add_library(
+    mcrs_network
+    src/network/receive_buffer.cpp
+    include/mcrs/network/receive_buffer.hpp
+)
+target_include_directories(mcrs_network PUBLIC include)
+target_link_libraries(mcrs_network PUBLIC mcrs_project_options)
+
 add_executable(mcrs_server src/main.cpp)
-target_link_libraries(mcrs_server PRIVATE mcrs_protocol)
+target_link_libraries(mcrs_server PRIVATE mcrs_network mcrs_protocol)
 
 include(CTest)
 
@@ -49,4 +57,8 @@ if(BUILD_TESTING)
     add_executable(mcrs_protocol_tests tests/packet_codec_tests.cpp)
     target_link_libraries(mcrs_protocol_tests PRIVATE mcrs_protocol)
     add_test(NAME protocol.codec COMMAND mcrs_protocol_tests)
+
+    add_executable(mcrs_receive_buffer_tests tests/receive_buffer_tests.cpp)
+    target_link_libraries(mcrs_receive_buffer_tests PRIVATE mcrs_network mcrs_protocol)
+    add_test(NAME network.receive_buffer COMMAND mcrs_receive_buffer_tests)
 endif()

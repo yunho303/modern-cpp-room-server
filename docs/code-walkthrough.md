@@ -17,12 +17,14 @@ payload
 
 ## 2. Build structure
 
-`CMakeLists.txt`는 세 개의 target을 만듭니다.
+`CMakeLists.txt`는 다음 target을 만듭니다.
 
 - `mcrs_project_options`: C++23과 compiler warning 설정을 전달하는 interface target
 - `mcrs_protocol`: packet codec을 담는 library
+- `mcrs_network`: Session에서 사용할 수신 버퍼를 담는 library
 - `mcrs_server`: protocol library를 사용하는 executable
 - `mcrs_protocol_tests`: CTest가 실행하는 test executable
+- `mcrs_receive_buffer_tests`: 분할 및 결합 수신을 검증하는 test executable
 
 경고를 오류로 처리해 narrowing conversion, shadowing과 비표준 코드가 조용히 들어오는 것을 막습니다.
 `CMakePresets.json`은 Visual Studio 2022 x64의 configure, Debug/Release build와 test 명령을 고정합니다.
@@ -122,7 +124,19 @@ expression의 파일과 line을 출력합니다.
 `docs/decisions`에는 기술을 사용한 이유와 대가를 기록합니다. `AI_USAGE.md`는 AI가 만든 초안과 개발자가 직접
 결정하고 검증해야 하는 범위를 공개합니다.
 
-## 10. Known gaps
+## 10. ReceiveBuffer
+
+`ReceiveBuffer`는 TCP read로 받은 byte를 소유하지만 packet 형식은 알지 않습니다. `readable_bytes()`로 아직
+처리하지 않은 영역의 `span`을 제공하고, Session은 `decode_one`이 반환한 `consumed_bytes`만큼만 소비합니다.
+
+vector 앞부분을 매번 `erase`하면 남은 모든 byte가 매번 이동합니다. 대신 `read_offset_`만 증가시키고, 새 byte를
+추가할 뒤쪽 공간이 부족할 때만 `memmove`로 남은 영역을 앞으로 당깁니다. 전체 packet을 소비하면 size는 0으로
+만들되 예약된 capacity는 다음 read에서 재사용합니다.
+
+`readable_bytes()`가 반환한 view는 `append`나 `consume`이 호출되면 무효가 될 수 있습니다. Room worker처럼
+더 오래 실행되는 흐름에 넘길 때는 payload view를 보관하지 않고 필요한 값을 소유하는 command로 변환해야 합니다.
+
+## 11. Known gaps
 
 - 실제 TCP accept와 Session이 아직 없습니다.
 - 수신 버퍼의 보존, 압축과 backpressure 정책이 아직 없습니다.

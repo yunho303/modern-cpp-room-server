@@ -2,11 +2,12 @@
 
 ## Current scope
 
-현재 구현은 TCP byte stream 위에서 사용할 패킷 경계와 오류 모델입니다.
+현재 구현은 TCP byte stream 위에서 사용할 패킷 경계, 오류 모델과 Session이 소유할 수신 버퍼입니다.
 
 ```mermaid
 flowchart LR
-    Buffer[Received byte buffer] --> Codec[Packet codec]
+    Read[TCP read bytes] --> Buffer[ReceiveBuffer]
+    Buffer --> Codec[Packet codec]
     Codec -->|complete| View[PacketView]
     Codec -->|need more bytes| Incomplete[Incomplete result]
     Codec -->|invalid input| Reject[Protocol error]
@@ -15,6 +16,10 @@ flowchart LR
 `PacketView`는 입력 버퍼를 소유하지 않습니다. 따라서 Session은 Packet 처리 완료 전까지 입력 버퍼의 주소가
 변하거나 해제되지 않도록 보장해야 합니다. 이 제약을 타입 이름과 API 주석에 드러내어 암묵적인 수명 규칙을
 줄였습니다.
+
+`ReceiveBuffer`는 이미 처리한 byte를 offset으로 소비하고 incomplete packet은 다음 read까지 유지합니다.
+완성된 `PacketView`를 처리한 뒤에만 `consume`하며, `append`와 `consume` 이후에는 이전 view를 사용하지 않습니다.
+실제 socket과 coroutine Session은 아직 구현하지 않았습니다.
 
 ## Target flow
 
