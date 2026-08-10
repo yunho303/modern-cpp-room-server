@@ -11,14 +11,15 @@ TCP는 패킷 경계를 보존하지 않습니다. 한 패킷이 여러 read로 
 
 ## Decision
 
-Session마다 하나의 `ReceiveBuffer`를 소유합니다. 네트워크 read가 끝나면 받은 byte를 추가하고 다음 순서로
-처리합니다.
+Session마다 하나의 `ReceiveBuffer`를 소유합니다. 생성할 때 Session당 최대 누적 byte를 반드시 지정합니다.
+네트워크 read가 끝나면 받은 byte를 추가하고 다음 순서로 처리합니다.
 
-1. `readable_bytes()`를 `decode_one`에 전달합니다.
-2. 완성된 `PacketView`는 버퍼를 변경하기 전에 처리합니다.
-3. 처리한 패킷의 `consumed_bytes`만큼 `consume`합니다.
-4. incomplete 오류라면 byte를 보존하고 다음 read를 기다립니다.
-5. invalid 오류라면 입력을 소비하지 않고 Session이 연결을 종료합니다.
+1. `append`가 최대 누적 크기를 초과하면 Session을 종료합니다.
+2. `readable_bytes()`를 `decode_one`에 전달합니다.
+3. 완성된 `PacketView`는 버퍼를 변경하기 전에 처리합니다.
+4. 처리한 패킷의 `consumed_bytes`만큼 `consume`합니다.
+5. incomplete 오류라면 byte를 보존하고 다음 read를 기다립니다.
+6. invalid 오류라면 입력을 소비하지 않고 Session이 연결을 종료합니다.
 
 `ReceiveBuffer`는 byte의 저장과 소비만 담당하고 packet 규칙을 알지 않습니다. 반대로 protocol codec은 입력
 메모리를 소유하지 않습니다. 이를 통해 네트워크 저장 책임과 protocol 해석 책임을 분리합니다.
@@ -34,6 +35,7 @@ Session마다 하나의 `ReceiveBuffer`를 소유합니다. 네트워크 read가
 - 패킷이 분할되거나 결합되어 도착해도 같은 처리 흐름을 사용합니다.
 - 소비할 때마다 vector 앞부분을 지우지 않고 offset만 이동합니다.
 - 뒤쪽 여유 공간이 부족할 때만 남은 byte를 앞으로 이동해 반복적인 복사를 줄입니다.
+- 초기 capacity는 메모리 예약량일 뿐이므로, 별도의 최대 누적 크기로 무제한 성장을 방지합니다.
 - Session이 view를 비동기 작업에 그대로 저장하면 dangling view가 되므로 금지합니다.
 
 ## Alternative considered: ring buffer

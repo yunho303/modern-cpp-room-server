@@ -1,20 +1,27 @@
 #include "mcrs/network/receive_buffer.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 
 namespace mcrs::network
 {
-ReceiveBuffer::ReceiveBuffer(std::size_t initial_capacity)
+ReceiveBuffer::ReceiveBuffer(std::size_t max_buffered_bytes, std::size_t initial_capacity)
+    : max_buffered_bytes_{max_buffered_bytes}
 {
-    storage_.reserve(initial_capacity);
+    storage_.reserve(std::min(initial_capacity, max_buffered_bytes_));
 }
 
-void ReceiveBuffer::append(std::span<const std::byte> bytes)
+std::expected<void, ReceiveBufferError> ReceiveBuffer::append(std::span<const std::byte> bytes)
 {
     if (bytes.empty())
     {
-        return;
+        return {};
+    }
+
+    if (bytes.size() > max_buffered_bytes_ - size())
+    {
+        return std::unexpected(ReceiveBufferError::buffer_limit_exceeded);
     }
 
     const auto unused_tail_capacity = storage_.capacity() - storage_.size();
@@ -24,6 +31,7 @@ void ReceiveBuffer::append(std::span<const std::byte> bytes)
     }
 
     storage_.insert(storage_.end(), bytes.begin(), bytes.end());
+    return {};
 }
 
 void ReceiveBuffer::consume(std::size_t byte_count) noexcept
@@ -46,6 +54,11 @@ std::span<const std::byte> ReceiveBuffer::readable_bytes() const noexcept
 std::size_t ReceiveBuffer::size() const noexcept
 {
     return storage_.size() - read_offset_;
+}
+
+std::size_t ReceiveBuffer::max_size() const noexcept
+{
+    return max_buffered_bytes_;
 }
 
 bool ReceiveBuffer::empty() const noexcept

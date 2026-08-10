@@ -128,6 +128,8 @@ expression의 파일과 line을 출력합니다.
 
 `ReceiveBuffer`는 TCP read로 받은 byte를 소유하지만 packet 형식은 알지 않습니다. `readable_bytes()`로 아직
 처리하지 않은 영역의 `span`을 제공하고, Session은 `decode_one`이 반환한 `consumed_bytes`만큼만 소비합니다.
+생성 시 최대 누적 크기를 필수로 받아 초기 `reserve` 크기와 실제 허용 한도를 혼동하지 않도록 했습니다.
+`append`는 한도를 넘으면 `expected`로 오류를 반환하고 기존 byte는 변경하지 않습니다.
 
 vector 앞부분을 매번 `erase`하면 남은 모든 byte가 매번 이동합니다. 대신 `read_offset_`만 증가시키고, 새 byte를
 추가할 뒤쪽 공간이 부족할 때만 `memmove`로 남은 영역을 앞으로 당깁니다. 전체 packet을 소비하면 size는 0으로
