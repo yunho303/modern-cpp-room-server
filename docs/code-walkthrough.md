@@ -20,11 +20,13 @@ payload
 `CMakeLists.txt`는 다음 target을 만듭니다.
 
 - `mcrs_project_options`: C++23과 compiler warning 설정을 전달하는 interface target
+- `mcrs_asio`: 고정된 standalone Asio header와 thread 의존성을 전달하는 interface target
 - `mcrs_protocol`: packet codec을 담는 library
-- `mcrs_network`: Session에서 사용할 수신 버퍼를 담는 library
+- `mcrs_network`: 수신 버퍼, coroutine Session과 TCP acceptor를 담는 library
 - `mcrs_server`: protocol library를 사용하는 executable
 - `mcrs_protocol_tests`: CTest가 실행하는 test executable
 - `mcrs_receive_buffer_tests`: 분할 및 결합 수신을 검증하는 test executable
+- `mcrs_session_tests`: loopback TCP ping 왕복을 검증하는 test executable
 
 경고를 오류로 처리해 narrowing conversion, shadowing과 비표준 코드가 조용히 들어오는 것을 막습니다.
 `CMakePresets.json`은 Visual Studio 2022 x64의 configure, Debug/Release build와 test 명령을 고정합니다.
@@ -89,13 +91,15 @@ header field는 big endian으로 기록하고 payload는 `memcpy`합니다.
 병목으로 확인되면 buffer reuse, immutable shared buffer 또는 `std::pmr`을 적용하고 전후 수치를 비교합니다.
 측정 전에 메모리 풀을 넣지 않습니다.
 
-## 7. Demo executable
+## 7. Server executable and Coroutine Session
 
-`src/main.cpp`는 2-byte payload를 `ping` packet으로 encode하고 다시 decode합니다. `expected`를 boolean처럼
-검사하고 실패 시 `error()`를 문자열로 출력합니다. 성공 시 packet type과 payload 크기를 출력합니다.
+`src/main.cpp`는 `io_context`에 `run_server` coroutine을 등록한 뒤 main thread에서 event loop를 실행합니다.
+`run_server`는 TCP accept가 완료될 때마다 socket을 새 `run_session` coroutine으로 이동하고 즉시 다음 접속을
+기다립니다.
 
-이 코드는 서버가 아닙니다. protocol library의 가장 작은 사용 예이며, 다음 단계에서 Coroutine Session을
-실행하는 entry point로 교체합니다.
+각 Session은 최대 4 KiB씩 비동기로 읽어 `ReceiveBuffer`에 추가합니다. 불완전한 packet은 다음 read까지 보존하고,
+protocol 위반은 연결을 종료합니다. ping packet은 payload를 소유하는 응답 buffer로 만든 뒤 `async_write`로 전체를
+전송합니다. read와 write를 기다리는 동안 coroutine만 중단되므로 같은 I/O thread가 다른 Session을 실행할 수 있습니다.
 
 ## 8. Tests
 
@@ -112,9 +116,15 @@ expression의 파일과 line을 출력합니다.
 - 알 수 없는 packet type 거부
 - 한 buffer에 연속된 두 packet 처리
 - payload가 없는 packet 처리
+- 실제 loopback TCP ping 왕복
+- client가 하나의 ping을 두 번의 write로 나누어 전송한 경우
+- 두 ping packet이 한 TCP stream에 붙어서 수신된 경우
+- 알 수 없는 packet type을 받은 Session의 연결 종료
 
 테스트에서 `reserve` 후 두 packet을 이어 붙이는 것은 실제 TCP stream에서 packet 경계가 보존되지 않는 상황을
-재현하기 위한 것입니다.
+재현하기 위한 것입니다. 두 번의 write는 실제 TCP에서 한 read로 합쳐질 수도 있으므로, 분할 수신 자체는
+ReceiveBuffer 단위 테스트가 결정적으로 검증합니다. Session 통합 테스트는 매 시나리오마다 운영체제가 선택한
+임시 port를 사용하며, 오류로 coroutine이 끝나지 않는 경우를 감지하도록 CTest timeout을 설정했습니다.
 
 ## 9. CI and documentation
 
@@ -140,8 +150,8 @@ vector 앞부분을 매번 `erase`하면 남은 모든 byte가 매번 이동합�
 
 ## 11. Known gaps
 
-- 실제 TCP accept와 Session이 아직 없습니다.
-- 수신 버퍼의 보존, 압축과 backpressure 정책이 아직 없습니다.
+- graceful shutdown과 Session 취소 전파가 아직 없습니다.
+- 독립적인 outbound queue와 느린 client backpressure 정책이 아직 없습니다.
 - packet payload schema와 command dispatch가 없습니다.
 - vector 할당 비용의 기준 성능을 아직 측정하지 않았습니다.
 - Linux CI에서도 빌드와 테스트를 통과했지만, sanitizer와 실제 네트워크 부하 테스트는 아직 없습니다.

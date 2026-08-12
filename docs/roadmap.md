@@ -13,7 +13,7 @@
 
 완료 기준: protocol 코드의 흐름과 사용한 C++ 기능을 설명하고, 설계 의문을 실제 변경과 테스트로 연결합니다.
 
-## Week 2 - Coroutine TCP Session
+## Week 2 - Coroutine TCP Session (완료)
 
 평일의 작은 작업:
 

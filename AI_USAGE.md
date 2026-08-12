@@ -7,6 +7,7 @@
 - 초기 CMake 구성과 저장소 구조 초안
 - 패킷 코덱 구현 초안
 - 오류 및 경계 조건 테스트 후보 도출
+- coroutine TCP Session과 loopback 통합 테스트 초안
 - 설계 문서의 구조 정리
 
 ## Developer responsibility

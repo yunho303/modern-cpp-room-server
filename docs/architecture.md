@@ -19,7 +19,8 @@ flowchart LR
 
 `ReceiveBuffer`는 이미 처리한 byte를 offset으로 소비하고 incomplete packet은 다음 read까지 유지합니다.
 완성된 `PacketView`를 처리한 뒤에만 `consume`하며, `append`와 `consume` 이후에는 이전 view를 사용하지 않습니다.
-실제 socket과 coroutine Session은 아직 구현하지 않았습니다.
+coroutine Session은 이 흐름을 실제 TCP read와 연결합니다. 현재는 하나의 I/O thread에서 Session별 read와 ping
+응답 write를 직렬 실행합니다. Room command와 여러 I/O thread는 아직 구현하지 않았습니다.
 
 ## Target flow
 
