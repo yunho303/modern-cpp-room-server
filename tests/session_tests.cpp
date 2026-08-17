@@ -1,5 +1,7 @@
 #include "mcrs/network/session.hpp"
+#include "mcrs/protocol/gameplay_payload.hpp"
 #include "mcrs/protocol/packet_codec.hpp"
+#include "mcrs/room/room_worker.hpp"
 
 #include <asio/buffer.hpp>
 #include <asio/co_spawn.hpp>
@@ -32,10 +34,10 @@ using asio::ip::tcp;
 using namespace mcrs::protocol;
 using ClientScenario = asio::awaitable<bool> (*)(std::uint16_t);
 
-asio::awaitable<void> accept_one(tcp::acceptor acceptor)
+asio::awaitable<void> accept_one(tcp::acceptor acceptor, mcrs::room::RoomWorker& room_worker)
 {
     auto socket = co_await acceptor.async_accept(asio::use_awaitable);
-    co_await mcrs::network::run_session(std::move(socket));
+    co_await mcrs::network::run_session(std::move(socket), mcrs::room::SessionId{1}, room_worker);
 }
 
 asio::awaitable<tcp::socket> connect_client(std::uint16_t port)
@@ -151,18 +153,45 @@ asio::awaitable<bool> invalid_packet_closes_connection(std::uint16_t port)
     co_return read_error == asio::error::eof || read_error == asio::error::connection_reset;
 }
 
-bool run_scenario(std::string_view name, ClientScenario scenario)
+asio::awaitable<bool> joined_session_moves_and_leaves_on_disconnect(std::uint16_t port)
+{
+    auto socket = co_await connect_client(port);
+    const auto join = encode_packet(PacketType::join_room, {});
+    constexpr MovePayload movement{.x = -17, .y = 29};
+    const auto movement_bytes = encode_move_payload(movement);
+    const auto move = encode_packet(PacketType::move, movement_bytes);
+    if (!join || !move)
+    {
+        co_return false;
+    }
+
+    std::vector<std::byte> requests;
+    requests.reserve(join->size() + move->size());
+    requests.insert(requests.end(), join->begin(), join->end());
+    requests.insert(requests.end(), move->begin(), move->end());
+
+    co_await asio::async_write(socket, asio::buffer(requests), asio::use_awaitable);
+    socket.shutdown(tcp::socket::shutdown_send);
+    socket.close();
+    co_return true;
+}
+
+bool run_scenario(std::string_view name, ClientScenario scenario,
+                  std::size_t expected_processed_commands = 0,
+                  std::size_t expected_rejected_commands = 0,
+                  std::size_t expected_players = 0)
 {
     asio::io_context context{1};
     tcp::acceptor acceptor{context, {tcp::v4(), 0}};
     const auto port = acceptor.local_endpoint().port();
+    mcrs::room::RoomWorker room_worker;
 
     bool server_completed = false;
     bool client_completed = false;
     bool scenario_succeeded = false;
     bool coroutine_failed = false;
 
-    asio::co_spawn(context, accept_one(std::move(acceptor)),
+    asio::co_spawn(context, accept_one(std::move(acceptor), room_worker),
                    [&server_completed, &coroutine_failed](std::exception_ptr exception) {
                        server_completed = true;
                        coroutine_failed = coroutine_failed || exception != nullptr;
@@ -177,8 +206,13 @@ bool run_scenario(std::string_view name, ClientScenario scenario)
                    });
 
     context.run();
+    const auto room_summary = room_worker.stop();
 
-    const bool passed = server_completed && client_completed && scenario_succeeded && !coroutine_failed;
+    const bool room_succeeded = room_summary.processed_commands == expected_processed_commands &&
+                                room_summary.rejected_commands == expected_rejected_commands &&
+                                room_summary.players.size() == expected_players;
+    const bool passed = server_completed && client_completed && scenario_succeeded && !coroutine_failed &&
+                        room_succeeded;
     std::cout << (passed ? "[PASS] " : "[FAIL] ") << name << '\n';
     return passed;
 }
@@ -190,6 +224,13 @@ int main()
     const bool two_writes_passed = run_scenario("ping sent in two client writes", ping_sent_in_two_writes_round_trip);
     const bool concatenated_passed = run_scenario("concatenated TCP packets", concatenated_pings_round_trip);
     const bool invalid_passed = run_scenario("invalid packet closes connection", invalid_packet_closes_connection);
+    const bool room_commands_passed = run_scenario(
+        "join and move reach Room Worker before disconnect cleanup",
+        joined_session_moves_and_leaves_on_disconnect,
+        3);
 
-    return ping_passed && two_writes_passed && concatenated_passed && invalid_passed ? 0 : 1;
+    return ping_passed && two_writes_passed && concatenated_passed && invalid_passed &&
+                   room_commands_passed
+               ? 0
+               : 1;
 }

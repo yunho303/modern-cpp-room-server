@@ -44,9 +44,8 @@ Session의 최대 수신 누적량은 `최대 packet 크기 + read chunk 크기`
 - Room broadcast처럼 read와 write 요청이 독립적으로 생기면 outbound queue와 별도 writer coroutine을 추가해야 합니다.
 - 여러 I/O thread를 사용할 때는 Session 작업을 같은 executor 또는 strand에 묶는 정책을 다시 결정해야 합니다.
 
-## Future game-state lifecycle
+## Game-state lifecycle
 
-현재 Session에는 게임 상태가 없으므로 `run`이 끝나면 coroutine frame의 지역 Session과 socket이 함께 파괴됩니다.
-Room을 연결한 뒤에는 socket 종료와 Player 제거를 같은 수명으로 취급하지 않습니다. Session은 명시적인 종료 사유와
-SessionId를 가진 `DisconnectCommand`를 Room queue에 전달하고, Room은 자신의 실행 흐름에서 Player 제거와 상태
-정리를 수행합니다. Session 소멸자는 게임 로직을 실행하지 않고 네트워크 자원 정리만 담당합니다.
+Session은 서버가 발급한 SessionId와 Room 가입 여부를 소유합니다. socket 종료, protocol 오류와 명시적 퇴장은
+각각 종료 사유를 가진 `LeaveCommand`로 변환하고, Room은 자신의 실행 흐름에서 Player를 제거합니다. Session
+소멸자는 게임 로직을 실행하지 않고 네트워크 자원 정리만 담당합니다.

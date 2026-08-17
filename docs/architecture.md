@@ -2,13 +2,17 @@
 
 ## Current scope
 
-현재 구현은 TCP byte stream 위에서 사용할 패킷 경계, 오류 모델과 Session이 소유할 수신 버퍼입니다.
+현재 구현은 TCP byte stream을 검증된 Room 명령으로 변환하고, 전용 Worker에서 게임 상태를 순차 변경합니다.
 
 ```mermaid
 flowchart LR
     Read[TCP read bytes] --> Buffer[ReceiveBuffer]
     Buffer --> Codec[Packet codec]
     Codec -->|complete| View[PacketView]
+    View --> Validate[Gameplay payload validation]
+    Validate --> Command[Owned RoomCommand]
+    Command --> Queue[Closeable command queue]
+    Queue --> Worker[Single-owner Room Worker]
     Codec -->|need more bytes| Incomplete[Incomplete result]
     Codec -->|invalid input| Reject[Protocol error]
 ```
@@ -19,10 +23,14 @@ flowchart LR
 
 `ReceiveBuffer`는 이미 처리한 byte를 offset으로 소비하고 incomplete packet은 다음 read까지 유지합니다.
 완성된 `PacketView`를 처리한 뒤에만 `consume`하며, `append`와 `consume` 이후에는 이전 view를 사용하지 않습니다.
-coroutine Session은 이 흐름을 실제 TCP read와 연결합니다. 현재는 하나의 I/O thread에서 Session별 read와 ping
-응답 write를 직렬 실행합니다. Room command와 여러 I/O thread는 아직 구현하지 않았습니다.
+coroutine Session은 이 흐름을 실제 TCP read와 연결합니다. 하나의 I/O thread에서 Session별 read와 ping 응답
+write를 진행하고, join, move, leave는 값 타입 `RoomCommand`로 변환해 Worker queue에 넣습니다. `PacketView`의
+`span`은 수신 버퍼를 참조하므로 queue 경계를 넘기지 않습니다.
 
-## Target flow
+Room Worker는 별도 `std::jthread`에서 FIFO로 명령을 처리하며 Room 상태의 유일한 변경자입니다. queue의
+`mutex`는 여러 Session의 submit과 Worker pop만 동기화하고, Room 내부 상태에는 lock을 두지 않습니다.
+
+## Next flow
 
 ```mermaid
 flowchart LR
@@ -34,6 +42,6 @@ flowchart LR
     Outbound --> Session
 ```
 
-네트워크 I/O 스레드는 게임 객체를 직접 수정하지 않습니다. 검증된 Command만 Queue에 넣고, Room Worker가
-게임 상태를 단독으로 소유합니다. 이후 기준 성능을 측정한 뒤 Queue, 직렬화와 버퍼 할당 중 실제 병목이 확인된
-부분만 최적화합니다.
+입력 방향의 Session, Command queue와 Room Worker는 구현했습니다. 다음 단계는 Room 결과를 immutable outbound
+buffer로 발행하고, Session별 송신 queue의 byte 한도와 backpressure 정책을 추가하는 것입니다. 이후 기준 성능을
+측정한 뒤 Queue, 직렬화와 버퍼 할당 중 실제 병목이 확인된 부분만 최적화합니다.

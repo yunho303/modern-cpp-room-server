@@ -55,11 +55,25 @@ endif()
 
 add_library(
     mcrs_protocol
+    src/protocol/gameplay_payload.cpp
     src/protocol/packet_codec.cpp
+    include/mcrs/protocol/gameplay_payload.hpp
     include/mcrs/protocol/packet_codec.hpp
 )
 target_include_directories(mcrs_protocol PUBLIC include)
 target_link_libraries(mcrs_protocol PUBLIC mcrs_project_options)
+
+add_library(
+    mcrs_room
+    src/room/room.cpp
+    src/room/room_worker.cpp
+    include/mcrs/concurrency/closeable_queue.hpp
+    include/mcrs/room/room.hpp
+    include/mcrs/room/room_command.hpp
+    include/mcrs/room/room_worker.hpp
+)
+target_include_directories(mcrs_room PUBLIC include)
+target_link_libraries(mcrs_room PUBLIC mcrs_project_options PRIVATE Threads::Threads)
 
 add_library(
     mcrs_network
@@ -71,7 +85,7 @@ add_library(
     include/mcrs/network/session.hpp
 )
 target_include_directories(mcrs_network PUBLIC include)
-target_link_libraries(mcrs_network PUBLIC mcrs_asio mcrs_project_options PRIVATE mcrs_protocol)
+target_link_libraries(mcrs_network PUBLIC mcrs_asio mcrs_project_options mcrs_room PRIVATE mcrs_protocol)
 
 add_executable(mcrs_server src/main.cpp)
 target_link_libraries(mcrs_server PRIVATE mcrs_network mcrs_protocol)
@@ -91,4 +105,13 @@ if(BUILD_TESTING)
     target_link_libraries(mcrs_session_tests PRIVATE mcrs_network mcrs_protocol)
     add_test(NAME network.session COMMAND mcrs_session_tests)
     set_tests_properties(network.session PROPERTIES TIMEOUT 10)
+
+    add_executable(mcrs_room_tests tests/room_tests.cpp)
+    target_link_libraries(mcrs_room_tests PRIVATE mcrs_room)
+    add_test(NAME room.state COMMAND mcrs_room_tests)
+
+    add_executable(mcrs_room_worker_tests tests/room_worker_tests.cpp)
+    target_link_libraries(mcrs_room_worker_tests PRIVATE mcrs_room)
+    add_test(NAME room.worker COMMAND mcrs_room_worker_tests)
+    set_tests_properties(room.worker PROPERTIES TIMEOUT 10)
 endif()

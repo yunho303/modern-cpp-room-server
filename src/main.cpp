@@ -1,4 +1,5 @@
 #include "mcrs/network/server.hpp"
+#include "mcrs/room/room_worker.hpp"
 
 #include <asio/co_spawn.hpp>
 #include <asio/io_context.hpp>
@@ -37,9 +38,10 @@ int main(int argc, char* argv[])
     }
 
     asio::io_context context{1};
+    mcrs::room::RoomWorker room_worker;
     bool server_failed = false;
 
-    asio::co_spawn(context, mcrs::network::run_server(port), [&server_failed](std::exception_ptr exception) {
+    asio::co_spawn(context, mcrs::network::run_server(port, room_worker), [&server_failed](std::exception_ptr exception) {
         if (!exception)
         {
             return;
@@ -61,5 +63,6 @@ int main(int argc, char* argv[])
     });
 
     context.run();
+    static_cast<void>(room_worker.stop());
     return server_failed ? 1 : 0;
 }

@@ -1,4 +1,5 @@
 #include "mcrs/protocol/packet_codec.hpp"
+#include "mcrs/protocol/gameplay_payload.hpp"
 
 #include <algorithm>
 #include <array>
@@ -182,6 +183,25 @@ void empty_payload_is_supported()
     MCRS_CHECK(decoded && decoded->payload.empty());
     MCRS_CHECK(decoded && decoded->consumed_bytes == wire_header_size);
 }
+
+void move_payload_preserves_signed_coordinates()
+{
+    constexpr MovePayload movement{.x = -120, .y = 45'678};
+    const auto encoded = encode_move_payload(movement);
+    const auto decoded = decode_move_payload(encoded);
+
+    MCRS_CHECK(decoded.has_value());
+    MCRS_CHECK(decoded && *decoded == movement);
+}
+
+void move_payload_requires_exact_coordinate_size()
+{
+    constexpr std::array<std::byte, move_payload_size - 1U> undersized{};
+    const auto decoded = decode_move_payload(undersized);
+
+    MCRS_CHECK(!decoded.has_value());
+    MCRS_CHECK(decoded.error() == GameplayPayloadError::invalid_move_payload_size);
+}
 } // namespace
 
 int main()
@@ -194,6 +214,8 @@ int main()
     run_test("unknown packet type", unknown_packet_type_is_rejected);
     run_test("concatenated packets", concatenated_packets_are_consumed_one_at_a_time);
     run_test("empty payload", empty_payload_is_supported);
+    run_test("signed move payload", move_payload_preserves_signed_coordinates);
+    run_test("invalid move payload size", move_payload_requires_exact_coordinate_size);
 
     if (failure_count != 0)
     {

@@ -10,7 +10,7 @@
 - [x] 길이 기반 패킷 프레이밍과 명시적 오류 모델
 - [x] TCP read 결과를 누적하고 소비하는 수신 버퍼
 - [x] Coroutine 기반 비동기 TCP Session과 ping 왕복
-- [ ] I/O 스레드와 Room Worker의 상태 소유권 분리
+- [x] I/O 스레드와 Room Worker의 상태 소유권 분리
 - [ ] 봇 클라이언트와 성능 기준값 측정
 - [ ] 프로파일링 기반 최적화와 전후 비교
 
@@ -52,6 +52,7 @@ ctest --preset debug
 - [Packet framing decision](docs/decisions/0002-packet-framing.md)
 - [Session receive buffer decision](docs/decisions/0003-session-receive-buffer.md)
 - [Coroutine Session ownership decision](docs/decisions/0004-coroutine-session-ownership.md)
+- [Single-owner Room decision](docs/decisions/0005-single-owner-room.md)
 - [Week 1 review checklist](docs/week-01-review-checklist.md)
 - [Week 1 learning notes](docs/week-01-learning-notes.md)
 - [Week 2 learning notes](docs/week-02-learning-notes.md)

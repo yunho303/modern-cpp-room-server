@@ -40,10 +40,11 @@ void report_session_completion(std::exception_ptr exception)
 }
 } // namespace
 
-asio::awaitable<void> run_server(std::uint16_t port)
+asio::awaitable<void> run_server(std::uint16_t port, room::RoomWorker& room_worker)
 {
     const auto executor = co_await asio::this_coro::executor;
     asio::ip::tcp::acceptor acceptor{executor, {asio::ip::tcp::v4(), port}};
+    std::uint64_t next_session_id = 1;
     std::cout << "mcrs_server listening on 0.0.0.0:" << port << '\n';
 
     for (;;)
@@ -61,7 +62,9 @@ asio::awaitable<void> run_server(std::uint16_t port)
             throw asio::system_error{accept_error};
         }
 
-        asio::co_spawn(executor, run_session(std::move(socket)), report_session_completion);
+        const room::SessionId session_id{next_session_id++};
+        asio::co_spawn(executor, run_session(std::move(socket), session_id, room_worker),
+                       report_session_completion);
     }
 }
 } // namespace mcrs::network
