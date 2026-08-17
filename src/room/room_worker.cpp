@@ -4,8 +4,9 @@
 
 namespace mcrs::room
 {
-RoomWorker::RoomWorker()
-    : worker_{[this](std::stop_token stop_token)
+RoomWorker::RoomWorker(RoomEventHandler event_handler)
+    : event_handler_{std::move(event_handler)},
+      worker_{[this](std::stop_token stop_token)
               { run(stop_token); }}
 {
 }
@@ -38,6 +39,7 @@ RoomWorkerSummary RoomWorker::stop()
         .players = room_.snapshot(),
         .processed_commands = processed_commands_,
         .rejected_commands = rejected_commands_,
+        .event_delivery_failures = event_delivery_failures_,
     };
     return *stopped_summary_;
 }
@@ -52,6 +54,19 @@ void RoomWorker::run(std::stop_token stop_token)
         if (!result)
         {
             ++rejected_commands_;
+            continue;
+        }
+
+        if (event_handler_)
+        {
+            try
+            {
+                event_handler_(*result);
+            }
+            catch (...)
+            {
+                ++event_delivery_failures_;
+            }
         }
     }
 }

@@ -49,6 +49,9 @@ void write_big_endian(std::span<std::byte> bytes, std::size_t offset, T value) n
     case PacketType::move:
     case PacketType::attack:
     case PacketType::leave_room:
+    case PacketType::player_joined:
+    case PacketType::player_moved:
+    case PacketType::player_left:
         return true;
     }
 

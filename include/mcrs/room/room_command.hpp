@@ -29,13 +29,14 @@ struct GridPosition
     bool operator==(const GridPosition&) const = default;
 };
 
-enum class DisconnectReason
+enum class DisconnectReason : std::uint16_t
 {
-    left_room,
-    client_closed,
-    protocol_error,
-    io_error,
-    server_shutdown,
+    left_room = 1,
+    client_closed = 2,
+    protocol_error = 3,
+    io_error = 4,
+    outbound_overflow = 5,
+    server_shutdown = 6,
 };
 
 struct JoinCommand

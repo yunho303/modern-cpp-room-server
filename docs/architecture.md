@@ -30,7 +30,7 @@ write를 진행하고, join, move, leave는 값 타입 `RoomCommand`로 변환�
 Room Worker는 별도 `std::jthread`에서 FIFO로 명령을 처리하며 Room 상태의 유일한 변경자입니다. queue의
 `mutex`는 여러 Session의 submit과 Worker pop만 동기화하고, Room 내부 상태에는 lock을 두지 않습니다.
 
-## Next flow
+## Outbound flow
 
 ```mermaid
 flowchart LR
@@ -42,6 +42,8 @@ flowchart LR
     Outbound --> Session
 ```
 
-입력 방향의 Session, Command queue와 Room Worker는 구현했습니다. 다음 단계는 Room 결과를 immutable outbound
-buffer로 발행하고, Session별 송신 queue의 byte 한도와 backpressure 정책을 추가하는 것입니다. 이후 기준 성능을
-측정한 뒤 Queue, 직렬화와 버퍼 할당 중 실제 병목이 확인된 부분만 최적화합니다.
+Room은 성공한 상태 변경을 Event로 반환합니다. Room Worker callback은 Event를 wire packet으로 한 번 encode하고,
+Session Registry가 현재 Room 참여자들의 executor에 같은 immutable packet을 post합니다. Session별 OutboundQueue는
+대기 byte 한도를 넘긴 느린 연결을 종료하며 writer coroutine 하나만 socket write를 수행합니다.
+
+이후 기준 성능을 측정한 뒤 Queue, 직렬화와 버퍼 할당 중 실제 병목이 확인된 부분만 최적화합니다.

@@ -40,7 +40,8 @@ void report_session_completion(std::exception_ptr exception)
 }
 } // namespace
 
-asio::awaitable<void> run_server(std::uint16_t port, room::RoomWorker& room_worker)
+asio::awaitable<void> run_server(std::uint16_t port, room::RoomWorker& room_worker,
+                                 SessionRegistry& session_registry)
 {
     const auto executor = co_await asio::this_coro::executor;
     asio::ip::tcp::acceptor acceptor{executor, {asio::ip::tcp::v4(), port}};
@@ -63,7 +64,8 @@ asio::awaitable<void> run_server(std::uint16_t port, room::RoomWorker& room_work
         }
 
         const room::SessionId session_id{next_session_id++};
-        asio::co_spawn(executor, run_session(std::move(socket), session_id, room_worker),
+        asio::co_spawn(executor,
+                       run_session(std::move(socket), session_id, room_worker, session_registry),
                        report_session_completion);
     }
 }

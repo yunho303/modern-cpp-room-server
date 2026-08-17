@@ -70,6 +70,7 @@ add_library(
     include/mcrs/concurrency/closeable_queue.hpp
     include/mcrs/room/room.hpp
     include/mcrs/room/room_command.hpp
+    include/mcrs/room/room_event.hpp
     include/mcrs/room/room_worker.hpp
 )
 target_include_directories(mcrs_room PUBLIC include)
@@ -77,12 +78,18 @@ target_link_libraries(mcrs_room PUBLIC mcrs_project_options PRIVATE Threads::Thr
 
 add_library(
     mcrs_network
+    src/network/outbound_queue.cpp
     src/network/receive_buffer.cpp
+    src/network/room_event_encoder.cpp
     src/network/server.cpp
     src/network/session.cpp
+    src/network/session_registry.cpp
+    include/mcrs/network/outbound_queue.hpp
     include/mcrs/network/receive_buffer.hpp
+    include/mcrs/network/room_event_encoder.hpp
     include/mcrs/network/server.hpp
     include/mcrs/network/session.hpp
+    include/mcrs/network/session_registry.hpp
 )
 target_include_directories(mcrs_network PUBLIC include)
 target_link_libraries(mcrs_network PUBLIC mcrs_asio mcrs_project_options mcrs_room PRIVATE mcrs_protocol)
@@ -114,4 +121,12 @@ if(BUILD_TESTING)
     target_link_libraries(mcrs_room_worker_tests PRIVATE mcrs_room)
     add_test(NAME room.worker COMMAND mcrs_room_worker_tests)
     set_tests_properties(room.worker PROPERTIES TIMEOUT 10)
+
+    add_executable(mcrs_outbound_queue_tests tests/outbound_queue_tests.cpp)
+    target_link_libraries(mcrs_outbound_queue_tests PRIVATE mcrs_network)
+    add_test(NAME network.outbound_queue COMMAND mcrs_outbound_queue_tests)
+
+    add_executable(mcrs_session_registry_tests tests/session_registry_tests.cpp)
+    target_link_libraries(mcrs_session_registry_tests PRIVATE mcrs_network mcrs_protocol)
+    add_test(NAME network.session_registry COMMAND mcrs_session_registry_tests)
 endif()

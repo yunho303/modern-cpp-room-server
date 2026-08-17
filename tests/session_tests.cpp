@@ -34,10 +34,12 @@ using asio::ip::tcp;
 using namespace mcrs::protocol;
 using ClientScenario = asio::awaitable<bool> (*)(std::uint16_t);
 
-asio::awaitable<void> accept_one(tcp::acceptor acceptor, mcrs::room::RoomWorker& room_worker)
+asio::awaitable<void> accept_one(tcp::acceptor acceptor, mcrs::room::RoomWorker& room_worker,
+                                 mcrs::network::SessionRegistry& session_registry)
 {
     auto socket = co_await acceptor.async_accept(asio::use_awaitable);
-    co_await mcrs::network::run_session(std::move(socket), mcrs::room::SessionId{1}, room_worker);
+    co_await mcrs::network::run_session(std::move(socket), mcrs::room::SessionId{1}, room_worker,
+                                        session_registry);
 }
 
 asio::awaitable<tcp::socket> connect_client(std::uint16_t port)
@@ -171,9 +173,25 @@ asio::awaitable<bool> joined_session_moves_and_leaves_on_disconnect(std::uint16_
     requests.insert(requests.end(), move->begin(), move->end());
 
     co_await asio::async_write(socket, asio::buffer(requests), asio::use_awaitable);
+
+    constexpr std::size_t player_state_packet_size = wire_header_size + sizeof(std::uint64_t) +
+                                                     sizeof(std::int32_t) * 2U;
+    std::vector<std::byte> responses(player_state_packet_size * 2U);
+    co_await asio::async_read(socket, asio::buffer(responses), asio::use_awaitable);
+
+    const auto joined = decode_one(responses);
+    if (!joined)
+    {
+        co_return false;
+    }
+
+    const auto moved = decode_one(std::span{responses}.subspan(joined->consumed_bytes));
+    const bool received_events = joined->header.type == PacketType::player_joined && moved &&
+                                 moved->header.type == PacketType::player_moved;
+
     socket.shutdown(tcp::socket::shutdown_send);
     socket.close();
-    co_return true;
+    co_return received_events;
 }
 
 bool run_scenario(std::string_view name, ClientScenario scenario,
@@ -184,14 +202,19 @@ bool run_scenario(std::string_view name, ClientScenario scenario,
     asio::io_context context{1};
     tcp::acceptor acceptor{context, {tcp::v4(), 0}};
     const auto port = acceptor.local_endpoint().port();
-    mcrs::room::RoomWorker room_worker;
+    mcrs::network::SessionRegistry session_registry;
+    mcrs::room::RoomWorker room_worker{
+        [&session_registry](const mcrs::room::RoomEvent& event)
+        {
+            session_registry.publish(event);
+        }};
 
     bool server_completed = false;
     bool client_completed = false;
     bool scenario_succeeded = false;
     bool coroutine_failed = false;
 
-    asio::co_spawn(context, accept_one(std::move(acceptor), room_worker),
+    asio::co_spawn(context, accept_one(std::move(acceptor), room_worker, session_registry),
                    [&server_completed, &coroutine_failed](std::exception_ptr exception) {
                        server_completed = true;
                        coroutine_failed = coroutine_failed || exception != nullptr;

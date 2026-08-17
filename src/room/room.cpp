@@ -6,10 +6,10 @@
 
 namespace mcrs::room
 {
-std::expected<void, RoomCommandError> Room::apply(const RoomCommand& command)
+std::expected<RoomEvent, RoomCommandError> Room::apply(const RoomCommand& command)
 {
     return std::visit(
-        [this](const auto& concrete_command) -> std::expected<void, RoomCommandError>
+        [this](const auto& concrete_command) -> std::expected<RoomEvent, RoomCommandError>
         {
             using Command = std::remove_cvref_t<decltype(concrete_command)>;
 
@@ -61,7 +61,7 @@ std::vector<PlayerSnapshot> Room::snapshot() const
     return players;
 }
 
-std::expected<void, RoomCommandError> Room::apply_join(const JoinCommand& command)
+std::expected<RoomEvent, RoomCommandError> Room::apply_join(const JoinCommand& command)
 {
     const auto [player, inserted] = players_.try_emplace(command.session_id, GridPosition{});
     static_cast<void>(player);
@@ -71,10 +71,13 @@ std::expected<void, RoomCommandError> Room::apply_join(const JoinCommand& comman
         return std::unexpected(RoomCommandError::duplicate_session);
     }
 
-    return {};
+    return PlayerJoinedEvent{
+        .session_id = command.session_id,
+        .position = GridPosition{},
+    };
 }
 
-std::expected<void, RoomCommandError> Room::apply_move(const MoveCommand& command)
+std::expected<RoomEvent, RoomCommandError> Room::apply_move(const MoveCommand& command)
 {
     const auto player = players_.find(command.session_id);
     if (player == players_.end())
@@ -83,16 +86,22 @@ std::expected<void, RoomCommandError> Room::apply_move(const MoveCommand& comman
     }
 
     player->second = command.destination;
-    return {};
+    return PlayerMovedEvent{
+        .session_id = command.session_id,
+        .position = command.destination,
+    };
 }
 
-std::expected<void, RoomCommandError> Room::apply_leave(const LeaveCommand& command)
+std::expected<RoomEvent, RoomCommandError> Room::apply_leave(const LeaveCommand& command)
 {
     if (players_.erase(command.session_id) == 0)
     {
         return std::unexpected(RoomCommandError::session_not_found);
     }
 
-    return {};
+    return PlayerLeftEvent{
+        .session_id = command.session_id,
+        .reason = command.reason,
+    };
 }
 } // namespace mcrs::room

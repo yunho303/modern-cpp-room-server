@@ -1,4 +1,5 @@
 #include "mcrs/network/server.hpp"
+#include "mcrs/network/session_registry.hpp"
 #include "mcrs/room/room_worker.hpp"
 
 #include <asio/co_spawn.hpp>
@@ -9,6 +10,7 @@
 #include <exception>
 #include <iostream>
 #include <string_view>
+#include <utility>
 
 namespace
 {
@@ -38,10 +40,15 @@ int main(int argc, char* argv[])
     }
 
     asio::io_context context{1};
-    mcrs::room::RoomWorker room_worker;
+    mcrs::network::SessionRegistry session_registry;
+    mcrs::room::RoomWorker room_worker{
+        [&session_registry](const mcrs::room::RoomEvent& event)
+        {
+            session_registry.publish(event);
+        }};
     bool server_failed = false;
 
-    asio::co_spawn(context, mcrs::network::run_server(port, room_worker), [&server_failed](std::exception_ptr exception) {
+    asio::co_spawn(context, mcrs::network::run_server(port, room_worker, session_registry), [&server_failed](std::exception_ptr exception) {
         if (!exception)
         {
             return;

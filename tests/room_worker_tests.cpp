@@ -8,6 +8,8 @@
 #include <stop_token>
 #include <string_view>
 #include <thread>
+#include <variant>
+#include <vector>
 
 namespace
 {
@@ -118,6 +120,55 @@ void room_worker_counts_rejected_domain_commands()
     MCRS_CHECK(summary.rejected_commands == 1);
     MCRS_CHECK(summary.players.empty());
 }
+
+void room_worker_publishes_events_only_for_applied_commands()
+{
+    std::vector<RoomEvent> events;
+    RoomWorker worker{[&events](const RoomEvent& event)
+                      { events.push_back(event); }};
+    constexpr SessionId session_id{203};
+    constexpr GridPosition destination{11, 19};
+
+    MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
+    MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
+    MCRS_CHECK(worker.submit(MoveCommand{
+        .session_id = session_id,
+        .destination = destination,
+    }).has_value());
+
+    const auto summary = worker.stop();
+
+    MCRS_CHECK(summary.processed_commands == 3);
+    MCRS_CHECK(summary.rejected_commands == 1);
+    MCRS_CHECK(events.size() == 2);
+
+    const auto* joined = events.empty() ? nullptr : std::get_if<PlayerJoinedEvent>(&events[0]);
+    const auto* moved = events.size() < 2 ? nullptr : std::get_if<PlayerMovedEvent>(&events[1]);
+    MCRS_CHECK(joined && joined->session_id == session_id);
+    MCRS_CHECK(moved && moved->session_id == session_id);
+    MCRS_CHECK(moved && moved->position == destination);
+}
+
+void event_handler_failure_does_not_terminate_the_worker()
+{
+    RoomWorker worker{[](const RoomEvent&)
+                      { throw 42; }};
+    constexpr SessionId session_id{204};
+
+    MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
+    MCRS_CHECK(worker.submit(MoveCommand{
+        .session_id = session_id,
+        .destination = GridPosition{2, 3},
+    }).has_value());
+
+    const auto summary = worker.stop();
+
+    MCRS_CHECK(summary.processed_commands == 2);
+    MCRS_CHECK(summary.rejected_commands == 0);
+    MCRS_CHECK(summary.event_delivery_failures == 2);
+    MCRS_CHECK(summary.players.size() == 1);
+    MCRS_CHECK((summary.players.front().position == GridPosition{2, 3}));
+}
 } // namespace
 
 int main()
@@ -126,6 +177,8 @@ int main()
     run_test("stop token wakes consumer", stop_token_wakes_an_idle_consumer);
     run_test("Room Worker preserves command order", room_worker_applies_commands_in_submission_order);
     run_test("Room Worker records rejected commands", room_worker_counts_rejected_domain_commands);
+    run_test("Room Worker publishes applied events", room_worker_publishes_events_only_for_applied_commands);
+    run_test("Event failure does not terminate Worker", event_handler_failure_does_not_terminate_the_worker);
 
     if (failure_count != 0)
     {

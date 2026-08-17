@@ -16,6 +16,9 @@ enum class PacketType : std::uint16_t
     move = 3,
     attack = 4,
     leave_room = 5,
+    player_joined = 101,
+    player_moved = 102,
+    player_left = 103,
 };
 
 inline constexpr std::size_t wire_header_size = 6;

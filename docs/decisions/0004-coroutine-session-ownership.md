@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the single-I/O-thread baseline
+Superseded for outbound Event delivery by decision 0006; retained as the Week 2 baseline
 
 ## Context
 
@@ -49,3 +49,9 @@ Session의 최대 수신 누적량은 `최대 packet 크기 + read chunk 크기`
 Session은 서버가 발급한 SessionId와 Room 가입 여부를 소유합니다. socket 종료, protocol 오류와 명시적 퇴장은
 각각 종료 사유를 가진 `LeaveCommand`로 변환하고, Room은 자신의 실행 흐름에서 Player를 제거합니다. Session
 소멸자는 게임 로직을 실행하지 않고 네트워크 자원 정리만 담당합니다.
+
+## Evolution
+
+Room Event가 read coroutine과 독립적으로 Session에 도착하면서 coroutine frame 하나만으로는 Session 수명을
+보장할 수 없게 되었습니다. decision 0006부터 Session Registry는 weak pointer를 보관하고, 실행 중인 reader,
+writer와 `asio::post` handler가 필요한 동안만 `shared_ptr`로 Session 수명을 연장합니다.

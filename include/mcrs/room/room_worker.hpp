@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <expected>
+#include <functional>
 #include <optional>
 #include <stop_token>
 #include <thread>
@@ -12,17 +13,20 @@
 
 namespace mcrs::room
 {
+using RoomEventHandler = std::move_only_function<void(const RoomEvent&)>;
+
 struct RoomWorkerSummary
 {
     std::vector<PlayerSnapshot> players;
     std::size_t processed_commands{};
     std::size_t rejected_commands{};
+    std::size_t event_delivery_failures{};
 };
 
 class RoomWorker final
 {
 public:
-    RoomWorker();
+    explicit RoomWorker(RoomEventHandler event_handler = {});
     ~RoomWorker();
 
     RoomWorker(const RoomWorker&) = delete;
@@ -42,7 +46,9 @@ private:
     concurrency::CloseableQueue<RoomCommand> commands_;
     std::size_t processed_commands_{};
     std::size_t rejected_commands_{};
+    std::size_t event_delivery_failures_{};
     std::optional<RoomWorkerSummary> stopped_summary_;
+    RoomEventHandler event_handler_;
     std::jthread worker_;
 };
 } // namespace mcrs::room
