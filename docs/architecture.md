@@ -44,6 +44,9 @@ flowchart LR
 
 Room은 성공한 상태 변경을 Event로 반환합니다. Room Worker callback은 Event를 wire packet으로 한 번 encode하고,
 Session Registry가 현재 Room 참여자들의 executor에 같은 immutable packet을 post합니다. Session별 OutboundQueue는
-대기 byte 한도를 넘긴 느린 연결을 종료하며 writer coroutine 하나만 socket write를 수행합니다.
+대기 byte 한도를 넘긴 느린 연결을 종료하며 writer coroutine 하나만 socket write를 수행합니다. writer는 현재
+대기 중인 packet을 최대 64개, 64 KiB까지 고정 배열로 꺼내 하나의 buffer sequence로 전달합니다. 각 packet의
+`shared_ptr`는 coroutine frame에 남아 있으므로 비동기 write가 끝날 때까지 payload 수명이 유지됩니다.
 
-이후 기준 성능을 측정한 뒤 Queue, 직렬화와 버퍼 할당 중 실제 병목이 확인된 부분만 최적화합니다.
+이 배치는 profiler에서 per-packet queue pop과 write 준비가 hot path로 확인된 뒤 적용했습니다. 직렬화 형식과
+전달 Event 수는 바꾸지 않고 같은 부하 시나리오에서 전후 성능을 비교했습니다.

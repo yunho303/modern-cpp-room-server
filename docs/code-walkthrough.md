@@ -148,10 +148,25 @@ vector 앞부분을 매번 `erase`하면 남은 모든 byte가 매번 이동합�
 `readable_bytes()`가 반환한 view는 `append`나 `consume`이 호출되면 무효가 될 수 있습니다. Room worker처럼
 더 오래 실행되는 흐름에 넘길 때는 payload view를 보관하지 않고 필요한 값을 소유하는 command로 변환해야 합니다.
 
-## 11. Known gaps
+## 11. Batched outbound writes
+
+64-client baseline을 profile한 결과 application hot path는 `OutboundQueue::pop`, `push`, `async_write` 준비와
+`SessionRegistry::publish`에 모였습니다. Room Event 하나가 N명에게 전달될 때 각 Session이 작은 packet을 하나씩
+꺼내 별도의 composed write를 시작하는 구조였습니다.
+
+`OutboundQueue::pop_batch`는 caller가 제공한 `span<SharedPacket>`을 채웁니다. Session writer는 coroutine frame의
+`array<SharedPacket, 64>`로 packet 수명을 보존하고, 같은 크기의 `array<asio::const_buffer, 64>`를 buffer sequence로
+만듭니다. 따라서 payload를 합치는 추가 allocation이나 byte copy 없이 여러 packet을 한 `async_write`가 처리할 수
+있습니다. OS가 partial write를 반환하면 Asio의 composed operation이 남은 buffer를 계속 전송합니다.
+
+batch는 64 packet과 64 KiB 중 먼저 도달한 경계에서 멈춥니다. 첫 packet 하나가 byte 목표보다 큰 경우에는 그
+packet만 꺼내 진행 정지를 피합니다. Queue의 FIFO 순서, Session당 writer 하나, 256 KiB 대기 한도는 그대로
+유지합니다. 자세한 판단과 결과는 decision 0007과 benchmark 결과 문서에 기록했습니다.
+
+## 12. Known gaps
 
 - graceful shutdown과 Session 취소 전파가 아직 없습니다.
-- 독립적인 outbound queue와 느린 client backpressure 정책이 아직 없습니다.
-- packet payload schema와 command dispatch가 없습니다.
-- vector 할당 비용의 기준 성능을 아직 측정하지 않았습니다.
-- Linux CI에서도 빌드와 테스트를 통과했지만, sanitizer와 실제 네트워크 부하 테스트는 아직 없습니다.
+- 여러 I/O thread로 확장할 경우 Session executor의 strand 보장이 필요합니다.
+- 인증, 영속화와 reconnect 정책은 현재 Room benchmark 범위에 포함하지 않았습니다.
+- 실제 socket completion 수와 allocation 수는 별도 instrumentation으로 직접 집계하지 않습니다.
+- Linux CI에서도 빌드와 테스트를 통과했지만, sanitizer와 실제 외부 네트워크 부하 테스트는 아직 없습니다.

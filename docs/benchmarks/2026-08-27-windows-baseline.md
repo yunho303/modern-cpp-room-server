@@ -1,5 +1,7 @@
 # 2026-08-27 Windows Room Broadcast Baseline
 
+후속 profiling과 송신 배치 결과는 [2026-08-27-windows-outbound-batching.md](2026-08-27-windows-outbound-batching.md)에 기록했습니다.
+
 ## Environment
 
 - CPU: AMD Ryzen 5 3500X, 6 cores / 6 logical processors

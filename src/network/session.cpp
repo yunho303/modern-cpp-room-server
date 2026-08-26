@@ -31,6 +31,8 @@ constexpr std::size_t tcp_read_chunk_size = 4U * 1024U;
 constexpr std::size_t max_session_buffer_size =
     protocol::wire_header_size + protocol::max_payload_size + tcp_read_chunk_size;
 constexpr std::size_t max_session_outbound_bytes = 256U * 1024U;
+constexpr std::size_t max_outbound_batch_packets = 64U;
+constexpr std::size_t max_outbound_batch_bytes = 64U * 1024U;
 
 class Session final : public SessionOutboundEndpoint,
                       public std::enable_shared_from_this<Session>
@@ -268,19 +270,32 @@ private:
 
     [[nodiscard]] asio::awaitable<void> write_queued_packets()
     {
+        std::array<SharedPacket, max_outbound_batch_packets> packet_batch{};
+        std::array<asio::const_buffer, max_outbound_batch_packets> write_buffers{};
+
         while (!stopped_)
         {
-            auto packet = outbound_queue_.pop();
-            if (!packet)
+            const auto packet_count = outbound_queue_.pop_batch(packet_batch, max_outbound_batch_bytes);
+            if (packet_count == 0)
             {
                 write_in_progress_ = false;
                 co_return;
             }
 
+            for (std::size_t index = 0; index < packet_count; ++index)
+            {
+                write_buffers[index] = asio::buffer(*packet_batch[index]);
+            }
+
             asio::error_code write_error;
             co_await asio::async_write(
-                socket_, asio::buffer(**packet),
+                socket_, std::span{write_buffers}.first(packet_count),
                 asio::redirect_error(asio::use_awaitable, write_error));
+
+            for (auto& packet : std::span{packet_batch}.first(packet_count))
+            {
+                packet.reset();
+            }
 
             if (write_error)
             {

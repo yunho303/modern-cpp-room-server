@@ -30,7 +30,7 @@
 
 완료 기준: TCP가 패킷을 나누거나 합쳐 보내도 올바르게 처리하고, Session 객체가 언제 생성되고 파괴되는지 설명합니다.
 
-## Week 3 - Single-owner Room
+## Week 3 - Single-owner Room (완료)
 
 평일의 작은 작업:
 
@@ -47,17 +47,17 @@
 
 완료 기준: 공유 게임 상태에 별도 lock이 필요 없는 이유와 queue, Session, outbound buffer의 소유권을 설명합니다.
 
-## Week 4 - Measurement and optimization
+## Week 4 - Measurement and optimization (완료)
 
 평일의 작은 작업:
 
 - 봇 client 시나리오와 측정 항목을 먼저 정의
-- 처리량, p50/p95/p99 latency, allocation 수의 baseline 기록
+- 처리량과 p50/p95/p99 latency baseline 기록
 - profiler로 실제 병목을 확인하고 개선 후보 한 가지 선택
 
 주말 통합 작업:
 
-- 측정 결과에 따라 buffer 재사용, shared immutable buffer 또는 `std::pmr` 중 한 가지 적용
+- 측정 결과에 따라 여러 immutable packet을 한 buffer sequence로 묶는 송신 배치 적용
 - 같은 조건에서 최적화 전후 결과 비교
 - architecture, decision record, README와 실행 방법 정리
 - Release 빌드, 테스트, CI, 반복 가능한 benchmark 명령 최종 검증

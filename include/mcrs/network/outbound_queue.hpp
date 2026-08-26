@@ -4,7 +4,7 @@
 #include <deque>
 #include <expected>
 #include <memory>
-#include <optional>
+#include <span>
 #include <vector>
 
 namespace mcrs::network
@@ -29,7 +29,10 @@ public:
     explicit OutboundQueue(std::size_t max_pending_bytes);
 
     [[nodiscard]] std::expected<void, OutboundQueueError> push(SharedPacket packet);
-    [[nodiscard]] std::optional<SharedPacket> pop();
+    // Moves packets into destination[0, count). Remaining entries are unchanged.
+    // The first packet may exceed max_batch_bytes so the queue can always make progress.
+    [[nodiscard]] std::size_t pop_batch(std::span<SharedPacket> destination,
+                                        std::size_t max_batch_bytes);
 
     void close();
 

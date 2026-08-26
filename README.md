@@ -12,8 +12,15 @@
 - [x] Coroutine 기반 비동기 TCP Session과 ping 왕복
 - [x] I/O 스레드와 Room Worker의 상태 소유권 분리
 - [x] Room Event broadcast와 byte 제한 Session 송신 Queue
-- [ ] 봇 클라이언트와 성능 기준값 측정
-- [ ] 프로파일링 기반 최적화와 전후 비교
+- [x] Coroutine 봇 클라이언트와 반복 가능한 성능 기준값 측정
+- [x] 프로파일링 기반 송신 배치 최적화와 전후 비교
+
+## Measured result
+
+동일한 64-client Room broadcast 조건에서 packet별 write를 bounded gather write로 변경한 뒤, 5회 중앙값 기준
+처리량은 781.844에서 7,150.599 commands/s로 9.15배 증가했고 p99 latency는 155.117 ms에서 13.943 ms로
+감소했습니다. 조건과 한계는 [benchmark result](docs/benchmarks/2026-08-27-windows-outbound-batching.md)에 함께
+기록했습니다.
 
 ## Non-goals for v0.1
 
@@ -55,10 +62,13 @@ ctest --preset debug
 - [Coroutine Session ownership decision](docs/decisions/0004-coroutine-session-ownership.md)
 - [Single-owner Room decision](docs/decisions/0005-single-owner-room.md)
 - [Outbound event delivery decision](docs/decisions/0006-outbound-event-delivery.md)
+- [Batched outbound write decision](docs/decisions/0007-batched-outbound-write.md)
 - [Room broadcast benchmark scenario](docs/benchmark-scenario.md)
 - [Windows Room broadcast baseline](docs/benchmarks/2026-08-27-windows-baseline.md)
+- [Windows outbound batching result](docs/benchmarks/2026-08-27-windows-outbound-batching.md)
 - [Week 1 review checklist](docs/week-01-review-checklist.md)
 - [Week 1 learning notes](docs/week-01-learning-notes.md)
 - [Week 2 learning notes](docs/week-02-learning-notes.md)
+- [Week 4 learning notes](docs/week-04-learning-notes.md)
 - [Four-week roadmap](docs/roadmap.md)
 - [AI usage](AI_USAGE.md)

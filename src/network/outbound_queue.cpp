@@ -41,17 +41,33 @@ std::expected<void, OutboundQueueError> OutboundQueue::push(SharedPacket packet)
     return {};
 }
 
-std::optional<SharedPacket> OutboundQueue::pop()
+std::size_t OutboundQueue::pop_batch(std::span<SharedPacket> destination,
+                                     std::size_t max_batch_bytes)
 {
-    if (packets_.empty())
+    if (destination.empty() || max_batch_bytes == 0)
     {
-        return std::nullopt;
+        return 0;
     }
 
-    auto packet = std::move(packets_.front());
-    packets_.pop_front();
-    pending_bytes_ -= packet->size();
-    return packet;
+    std::size_t packet_count = 0;
+    std::size_t batch_bytes = 0;
+    while (packet_count < destination.size() && !packets_.empty())
+    {
+        const auto packet_bytes = packets_.front()->size();
+        if (packet_count != 0 &&
+            (batch_bytes >= max_batch_bytes || packet_bytes > max_batch_bytes - batch_bytes))
+        {
+            break;
+        }
+
+        destination[packet_count] = std::move(packets_.front());
+        packets_.pop_front();
+        pending_bytes_ -= packet_bytes;
+        batch_bytes += packet_bytes;
+        ++packet_count;
+    }
+
+    return packet_count;
 }
 
 void OutboundQueue::close()
