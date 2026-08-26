@@ -202,6 +202,47 @@ void move_payload_requires_exact_coordinate_size()
     MCRS_CHECK(!decoded.has_value());
     MCRS_CHECK(decoded.error() == GameplayPayloadError::invalid_move_payload_size);
 }
+
+void player_state_payload_decodes_server_event_fields()
+{
+    constexpr std::array<std::byte, player_state_payload_size> payload{
+        std::byte{0x01}, std::byte{0x23}, std::byte{0x45}, std::byte{0x67},
+        std::byte{0x89}, std::byte{0xAB}, std::byte{0xCD}, std::byte{0xEF},
+        std::byte{0xFF}, std::byte{0xFF}, std::byte{0xFF}, std::byte{0x88},
+        std::byte{0x00}, std::byte{0x00}, std::byte{0x01}, std::byte{0x41},
+    };
+
+    const auto decoded = decode_player_state_payload(payload);
+
+    MCRS_CHECK(decoded.has_value());
+    MCRS_CHECK(decoded && decoded->session_id == 0x0123'4567'89AB'CDEFULL);
+    MCRS_CHECK(decoded && decoded->x == -120);
+    MCRS_CHECK(decoded && decoded->y == 321);
+}
+
+void player_state_payload_requires_exact_size()
+{
+    constexpr std::array<std::byte, player_state_payload_size - 1U> undersized{};
+    const auto decoded = decode_player_state_payload(undersized);
+
+    MCRS_CHECK(!decoded.has_value());
+    MCRS_CHECK(decoded.error() == GameplayPayloadError::invalid_player_state_payload_size);
+}
+
+void player_left_payload_decodes_server_event_fields()
+{
+    constexpr std::array<std::byte, player_left_payload_size> payload{
+        std::byte{0x01}, std::byte{0x23}, std::byte{0x45}, std::byte{0x67},
+        std::byte{0x89}, std::byte{0xAB}, std::byte{0xCD}, std::byte{0xEF},
+        std::byte{0x00}, std::byte{0x05},
+    };
+
+    const auto decoded = decode_player_left_payload(payload);
+
+    MCRS_CHECK(decoded.has_value());
+    MCRS_CHECK(decoded && decoded->session_id == 0x0123'4567'89AB'CDEFULL);
+    MCRS_CHECK(decoded && decoded->reason == 5U);
+}
 } // namespace
 
 int main()
@@ -216,6 +257,9 @@ int main()
     run_test("empty payload", empty_payload_is_supported);
     run_test("signed move payload", move_payload_preserves_signed_coordinates);
     run_test("invalid move payload size", move_payload_requires_exact_coordinate_size);
+    run_test("player state payload", player_state_payload_decodes_server_event_fields);
+    run_test("invalid player state payload size", player_state_payload_requires_exact_size);
+    run_test("player left payload", player_left_payload_decodes_server_event_fields);
 
     if (failure_count != 0)
     {

@@ -105,6 +105,16 @@ target_link_libraries(mcrs_network PUBLIC mcrs_asio mcrs_project_options mcrs_ro
 add_executable(mcrs_server src/main.cpp)
 target_link_libraries(mcrs_server PRIVATE mcrs_network mcrs_protocol)
 
+add_executable(
+    mcrs_load_client
+    src/benchmark/load_client.cpp
+    src/benchmark/load_client_main.cpp
+    include/mcrs/benchmark/load_client.hpp
+)
+target_link_libraries(
+    mcrs_load_client
+    PRIVATE mcrs_benchmark_support mcrs_network mcrs_protocol)
+
 include(CTest)
 
 if(BUILD_TESTING)

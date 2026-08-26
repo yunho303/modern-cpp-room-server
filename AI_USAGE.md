@@ -11,6 +11,8 @@
 - single-owner Room Worker와 Session command 변환 초안
 - Room Event broadcast, Session Registry와 bounded outbound queue 초안
 - benchmark scenario, percentile/throughput metrics module and tests
+- coroutine load client and Room broadcast benchmark runner
+- repeatable benchmark matrix script and CSV aggregation
 - 설계 문서의 구조 정리
 
 ## Developer responsibility

@@ -7,6 +7,14 @@ namespace mcrs::protocol
 {
 namespace
 {
+[[nodiscard]] std::uint16_t read_uint16_big_endian(std::span<const std::byte> bytes,
+                                                    std::size_t offset) noexcept
+{
+    return static_cast<std::uint16_t>(
+        (std::to_integer<std::uint16_t>(bytes[offset]) << 8U) |
+        std::to_integer<std::uint16_t>(bytes[offset + 1U]));
+}
+
 [[nodiscard]] std::uint32_t read_uint32_big_endian(std::span<const std::byte> bytes,
                                                     std::size_t offset) noexcept
 {
@@ -14,6 +22,17 @@ namespace
            (std::to_integer<std::uint32_t>(bytes[offset + 1U]) << 16U) |
            (std::to_integer<std::uint32_t>(bytes[offset + 2U]) << 8U) |
            std::to_integer<std::uint32_t>(bytes[offset + 3U]);
+}
+
+[[nodiscard]] std::uint64_t read_uint64_big_endian(std::span<const std::byte> bytes,
+                                                    std::size_t offset) noexcept
+{
+    std::uint64_t value{};
+    for (std::size_t index = 0; index < sizeof(value); ++index)
+    {
+        value = (value << 8U) | std::to_integer<std::uint64_t>(bytes[offset + index]);
+    }
+    return value;
 }
 
 void write_uint32_big_endian(std::span<std::byte> bytes, std::size_t offset,
@@ -61,6 +80,38 @@ std::array<std::byte, move_payload_size> encode_move_payload(MovePayload payload
     return encoded;
 }
 
+std::expected<PlayerStatePayload, GameplayPayloadError>
+decode_player_state_payload(std::span<const std::byte> payload) noexcept
+{
+    if (payload.size() != player_state_payload_size)
+    {
+        return std::unexpected(GameplayPayloadError::invalid_player_state_payload_size);
+    }
+
+    const auto x_bits = read_uint32_big_endian(payload, sizeof(std::uint64_t));
+    const auto y_bits = read_uint32_big_endian(
+        payload, sizeof(std::uint64_t) + sizeof(std::int32_t));
+    return PlayerStatePayload{
+        .session_id = read_uint64_big_endian(payload, 0),
+        .x = std::bit_cast<std::int32_t>(x_bits),
+        .y = std::bit_cast<std::int32_t>(y_bits),
+    };
+}
+
+std::expected<PlayerLeftPayload, GameplayPayloadError>
+decode_player_left_payload(std::span<const std::byte> payload) noexcept
+{
+    if (payload.size() != player_left_payload_size)
+    {
+        return std::unexpected(GameplayPayloadError::invalid_player_left_payload_size);
+    }
+
+    return PlayerLeftPayload{
+        .session_id = read_uint64_big_endian(payload, 0),
+        .reason = read_uint16_big_endian(payload, sizeof(std::uint64_t)),
+    };
+}
+
 std::string_view to_string(GameplayPayloadError error) noexcept
 {
     switch (error)
@@ -69,6 +120,10 @@ std::string_view to_string(GameplayPayloadError error) noexcept
         return "packet payload must be empty";
     case GameplayPayloadError::invalid_move_payload_size:
         return "move payload must contain two 32-bit coordinates";
+    case GameplayPayloadError::invalid_player_state_payload_size:
+        return "player state payload must contain a session id and two coordinates";
+    case GameplayPayloadError::invalid_player_left_payload_size:
+        return "player left payload must contain a session id and reason";
     }
 
     return "unknown gameplay payload error";
