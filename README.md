@@ -55,6 +55,7 @@ ctest --preset debug
 - [Coroutine Session ownership decision](docs/decisions/0004-coroutine-session-ownership.md)
 - [Single-owner Room decision](docs/decisions/0005-single-owner-room.md)
 - [Outbound event delivery decision](docs/decisions/0006-outbound-event-delivery.md)
+- [Room broadcast benchmark scenario](docs/benchmark-scenario.md)
 - [Week 1 review checklist](docs/week-01-review-checklist.md)
 - [Week 1 learning notes](docs/week-01-learning-notes.md)
 - [Week 2 learning notes](docs/week-02-learning-notes.md)

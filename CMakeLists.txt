@@ -54,6 +54,14 @@ if(WIN32)
 endif()
 
 add_library(
+    mcrs_benchmark_support
+    src/benchmark/metrics.cpp
+    include/mcrs/benchmark/metrics.hpp
+)
+target_include_directories(mcrs_benchmark_support PUBLIC include)
+target_link_libraries(mcrs_benchmark_support PUBLIC mcrs_project_options)
+
+add_library(
     mcrs_protocol
     src/protocol/gameplay_payload.cpp
     src/protocol/packet_codec.cpp
@@ -129,4 +137,8 @@ if(BUILD_TESTING)
     add_executable(mcrs_session_registry_tests tests/session_registry_tests.cpp)
     target_link_libraries(mcrs_session_registry_tests PRIVATE mcrs_network mcrs_protocol)
     add_test(NAME network.session_registry COMMAND mcrs_session_registry_tests)
+
+    add_executable(mcrs_metrics_tests tests/metrics_tests.cpp)
+    target_link_libraries(mcrs_metrics_tests PRIVATE mcrs_benchmark_support)
+    add_test(NAME benchmark.metrics COMMAND mcrs_metrics_tests)
 endif()
