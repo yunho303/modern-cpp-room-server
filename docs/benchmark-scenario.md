@@ -44,6 +44,23 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-benchmark.ps1
 
 기본 matrix는 `1, 8, 16, 32, 64` clients이며, 결과는 `out/benchmark`에 원본 실행값과 중앙값 요약으로 나뉘어 저장됩니다.
 
+### Nagle 영향을 통제한 배치 전후 비교
+
+현재 서버와 부하 클라이언트는 기본 실행 경로에서 `TCP_NODELAY`를 명시적으로 설정하지 않습니다.
+Nagle을 비활성화한 비교에는 다음 전용 스크립트를 사용합니다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-nodelay-comparison.ps1
+```
+
+이 스크립트는 배치 전·후 커밋을 별도 디렉터리로 내보내고, 서버와 클라이언트 모두 연결 직후
+`TCP_NODELAY=true`를 설정하고 읽어 확인한 다음 빌드·테스트·벤치마크를 실행합니다. 두 버전의 실행 순서를
+회차마다 번갈아 적용하며, 모든 실행은 새 서버를 사용합니다. 조건별 5회 측정 원본과 중앙값은
+`out/nodelay-comparison/<실행 시각>`에 저장합니다. 자세한 해석 범위는
+[TCP_NODELAY 통제 재측정](benchmarks/2026-09-22-windows-nodelay-comparison.md)에 기록합니다.
+
+### 부하 클라이언트 기본값
+
 기본값은 client 16개, client당 warm-up 20회와 측정 200회입니다. 모든 Move는 현재 Room 구성원 전체에 전파되므로 N개의 client가 모두 송신하면 전체 전달량은 대략 N x N으로 증가합니다.
 
 ## 측정 항목

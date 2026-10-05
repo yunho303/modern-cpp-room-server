@@ -1,5 +1,9 @@
 # 2026-08-27 Windows Outbound Batching Result
 
+이 문서는 `TCP_NODELAY`를 명시적으로 설정·확인하지 않았던 최초 측정 기록입니다. 9.15배 개선을
+application write 비용 감소만의 효과로 단정하지 않습니다. Nagle을 양쪽에서 비활성화한 후속 비교는
+[2026-09-22 TCP_NODELAY 통제 재측정](2026-09-22-windows-nodelay-comparison.md)에 별도로 기록합니다.
+
 ## Hypothesis
 
 최초 baseline은 8~64 clients 구간에서 추정 전달 처리량이 약 50K~57K deliveries/s에 머물렀습니다. CPU profile에서

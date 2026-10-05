@@ -2,6 +2,9 @@
 
 후속 profiling과 송신 배치 결과는 [2026-08-27-windows-outbound-batching.md](2026-08-27-windows-outbound-batching.md)에 기록했습니다.
 
+이 최초 baseline은 `TCP_NODELAY`를 명시적으로 설정·확인하지 않은 조건입니다. Nagle을 양쪽에서 비활성화한
+배치 전후 비교는 [2026-09-22 TCP_NODELAY 통제 재측정](2026-09-22-windows-nodelay-comparison.md)을 참고합니다.
+
 ## Environment
 
 - CPU: AMD Ryzen 5 3500X, 6 cores / 6 logical processors
