@@ -34,8 +34,7 @@ void check(bool condition, std::string_view expression,
 
 #define MCRS_CHECK(expression) check(static_cast<bool>(expression), #expression)
 
-template <typename Function>
-void run_test(std::string_view name, Function&& function)
+template <typename Function> void run_test(std::string_view name, Function &&function)
 {
     const auto failures_before = failure_count;
     function();
@@ -69,8 +68,8 @@ void stop_token_wakes_an_idle_consumer()
     std::promise<bool> wait_finished;
     auto wait_result = wait_finished.get_future();
 
-    std::jthread consumer{[&](std::stop_token stop_token)
-                          { wait_finished.set_value(!queue.wait_pop(stop_token).has_value()); }};
+    std::jthread consumer{
+        [&](std::stop_token stop_token) { wait_finished.set_value(!queue.wait_pop(stop_token).has_value()); }};
 
     consumer.request_stop();
     MCRS_CHECK(wait_result.wait_for(1s) == std::future_status::ready);
@@ -109,10 +108,12 @@ void room_worker_counts_rejected_domain_commands()
 
     MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
     MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
-    MCRS_CHECK(worker.submit(LeaveCommand{
-        .session_id = session_id,
-        .reason = DisconnectReason::client_closed,
-    }).has_value());
+    MCRS_CHECK(worker
+                   .submit(LeaveCommand{
+                       .session_id = session_id,
+                       .reason = DisconnectReason::client_closed,
+                   })
+                   .has_value());
 
     const auto summary = worker.stop();
 
@@ -124,17 +125,18 @@ void room_worker_counts_rejected_domain_commands()
 void room_worker_publishes_events_only_for_applied_commands()
 {
     std::vector<RoomEvent> events;
-    RoomWorker worker{[&events](const RoomEvent& event)
-                      { events.push_back(event); }};
+    RoomWorker worker{[&events](const RoomEvent &event) { events.push_back(event); }};
     constexpr SessionId session_id{203};
     constexpr GridPosition destination{11, 19};
 
     MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
     MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
-    MCRS_CHECK(worker.submit(MoveCommand{
-        .session_id = session_id,
-        .destination = destination,
-    }).has_value());
+    MCRS_CHECK(worker
+                   .submit(MoveCommand{
+                       .session_id = session_id,
+                       .destination = destination,
+                   })
+                   .has_value());
 
     const auto summary = worker.stop();
 
@@ -142,8 +144,8 @@ void room_worker_publishes_events_only_for_applied_commands()
     MCRS_CHECK(summary.rejected_commands == 1);
     MCRS_CHECK(events.size() == 2);
 
-    const auto* joined = events.empty() ? nullptr : std::get_if<PlayerJoinedEvent>(&events[0]);
-    const auto* moved = events.size() < 2 ? nullptr : std::get_if<PlayerMovedEvent>(&events[1]);
+    const auto *joined = events.empty() ? nullptr : std::get_if<PlayerJoinedEvent>(&events[0]);
+    const auto *moved = events.size() < 2 ? nullptr : std::get_if<PlayerMovedEvent>(&events[1]);
     MCRS_CHECK(joined && joined->session_id == session_id);
     MCRS_CHECK(moved && moved->session_id == session_id);
     MCRS_CHECK(moved && moved->position == destination);
@@ -151,21 +153,25 @@ void room_worker_publishes_events_only_for_applied_commands()
 
 void event_handler_failure_does_not_terminate_the_worker()
 {
-    RoomWorker worker{[](const RoomEvent&)
-                      { throw 42; }};
+    auto metrics = std::make_shared<mcrs::observability::ServerMetrics>();
+    RoomWorker worker{[](const RoomEvent &) { throw 42; }, metrics};
     constexpr SessionId session_id{204};
 
     MCRS_CHECK(worker.submit(JoinCommand{.session_id = session_id}).has_value());
-    MCRS_CHECK(worker.submit(MoveCommand{
-        .session_id = session_id,
-        .destination = GridPosition{2, 3},
-    }).has_value());
+    MCRS_CHECK(worker
+                   .submit(MoveCommand{
+                       .session_id = session_id,
+                       .destination = GridPosition{2, 3},
+                   })
+                   .has_value());
 
     const auto summary = worker.stop();
 
     MCRS_CHECK(summary.processed_commands == 2);
     MCRS_CHECK(summary.rejected_commands == 0);
     MCRS_CHECK(summary.event_delivery_failures == 2);
+    MCRS_CHECK(metrics->snapshot().event_delivery_failures == 2);
+    MCRS_CHECK(metrics->snapshot().active_rooms == 0);
     MCRS_CHECK(summary.players.size() == 1);
     MCRS_CHECK((summary.players.front().position == GridPosition{2, 3}));
 }

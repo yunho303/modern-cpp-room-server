@@ -11,21 +11,48 @@
 
 namespace mcrs::network
 {
-bool SessionRegistry::register_session(room::SessionId session_id,
-                                       std::weak_ptr<SessionOutboundEndpoint> endpoint)
+SessionRegistry::SessionRegistry(std::shared_ptr<observability::ServerMetrics> metrics) : metrics_{std::move(metrics)}
+{
+}
+
+SessionRegistry::~SessionRegistry()
+{
+    if (metrics_)
+    {
+        for (std::size_t index = 0; index < sessions_.size(); ++index)
+        {
+            metrics_->session_unregistered();
+        }
+    }
+}
+
+const std::shared_ptr<observability::ServerMetrics> &SessionRegistry::metrics() const noexcept
+{
+    return metrics_;
+}
+
+bool SessionRegistry::register_session(room::SessionId session_id, std::weak_ptr<SessionOutboundEndpoint> endpoint)
 {
     std::lock_guard lock{mutex_};
-    return sessions_.try_emplace(session_id, std::move(endpoint)).second;
+    const auto inserted = sessions_.try_emplace(session_id, std::move(endpoint)).second;
+    if (inserted && metrics_)
+    {
+        metrics_->session_registered();
+    }
+    return inserted;
 }
 
 void SessionRegistry::unregister_session(room::SessionId session_id)
 {
     std::lock_guard lock{mutex_};
-    sessions_.erase(session_id);
+    if (sessions_.erase(session_id) != 0 && metrics_)
+    {
+        metrics_->session_unregistered();
+    }
     room_members_.erase(session_id);
 }
 
-void SessionRegistry::publish(const room::RoomEvent& event)
+void SessionRegistry::publish(const room::RoomEvent &event)
 {
     const auto encoded = encode_room_event(event);
     if (!encoded)
@@ -39,8 +66,7 @@ void SessionRegistry::publish(const room::RoomEvent& event)
         std::lock_guard lock{mutex_};
 
         std::visit(
-            [this](const auto& concrete_event)
-            {
+            [this](const auto &concrete_event) {
                 using Event = std::remove_cvref_t<decltype(concrete_event)>;
                 if constexpr (std::same_as<Event, room::PlayerJoinedEvent>)
                 {
@@ -67,6 +93,10 @@ void SessionRegistry::publish(const room::RoomEvent& event)
             if (!endpoint)
             {
                 sessions_.erase(session);
+                if (metrics_)
+                {
+                    metrics_->session_unregistered();
+                }
                 member = room_members_.erase(member);
                 continue;
             }
@@ -76,8 +106,12 @@ void SessionRegistry::publish(const room::RoomEvent& event)
         }
     }
 
-    for (const auto& recipient : recipients)
+    for (const auto &recipient : recipients)
     {
+        if (metrics_)
+        {
+            metrics_->delivery_attempted();
+        }
         recipient->deliver(*encoded);
     }
 }

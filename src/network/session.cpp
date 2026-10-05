@@ -34,25 +34,29 @@ constexpr std::size_t max_session_outbound_bytes = 256U * 1024U;
 constexpr std::size_t max_outbound_batch_packets = 64U;
 constexpr std::size_t max_outbound_batch_bytes = 64U * 1024U;
 
-class Session final : public SessionOutboundEndpoint,
-                      public std::enable_shared_from_this<Session>
+class Session final : public SessionOutboundEndpoint, public std::enable_shared_from_this<Session>
 {
-public:
-    Session(asio::ip::tcp::socket socket, room::SessionId session_id, room::RoomWorker& room_worker)
-        : executor_{socket.get_executor()},
-          socket_{std::move(socket)},
-          receive_buffer_{max_session_buffer_size},
-          outbound_queue_{max_session_outbound_bytes},
-          session_id_{session_id},
-          room_worker_{room_worker}
+  public:
+    Session(asio::ip::tcp::socket socket, room::SessionId session_id, room::RoomWorker &room_worker,
+            std::shared_ptr<observability::SessionMetrics> metrics)
+        : executor_{socket.get_executor()}, socket_{std::move(socket)}, receive_buffer_{max_session_buffer_size},
+          outbound_queue_{max_session_outbound_bytes}, session_id_{session_id}, room_worker_{room_worker},
+          metrics_{std::move(metrics)}
     {
+    }
+
+    ~Session() override
+    {
+        outbound_queue_.close();
+        update_queue_metrics();
     }
 
     void deliver(SharedPacket packet) override
     {
+        observability::PendingDelivery pending{metrics_, packet ? packet->size() : 0};
         asio::post(executor_,
-                   [self = shared_from_this(), packet = std::move(packet)]() mutable
-                   {
+                   [self = shared_from_this(), packet = std::move(packet), pending = std::move(pending)]() mutable {
+                       pending.begin();
                        static_cast<void>(self->enqueue_outbound(std::move(packet)));
                    });
     }
@@ -101,7 +105,15 @@ public:
         }
     }
 
-private:
+  private:
+    void update_queue_metrics() noexcept
+    {
+        if (metrics_)
+        {
+            metrics_->queue_changed(outbound_queue_.pending_packets(), outbound_queue_.pending_bytes());
+        }
+    }
+
     [[nodiscard]] asio::awaitable<bool> process_packets_and_send_responses()
     {
         while (!receive_buffer_.empty())
@@ -121,8 +133,7 @@ private:
 
             switch (decoded->header.type)
             {
-            case protocol::PacketType::ping:
-            {
+            case protocol::PacketType::ping: {
                 auto response = protocol::encode_packet(protocol::PacketType::ping, decoded->payload);
                 if (!response)
                 {
@@ -137,8 +148,7 @@ private:
                 }
                 break;
             }
-            case protocol::PacketType::join_room:
-            {
+            case protocol::PacketType::join_room: {
                 if (!protocol::validate_empty_payload(decoded->payload))
                 {
                     co_return reject_protocol("join packet payload must be empty");
@@ -159,8 +169,7 @@ private:
                 receive_buffer_.consume(decoded->consumed_bytes);
                 break;
             }
-            case protocol::PacketType::move:
-            {
+            case protocol::PacketType::move: {
                 if (!joined_room_)
                 {
                     co_return reject_protocol("session attempted to move before joining");
@@ -184,8 +193,7 @@ private:
                 receive_buffer_.consume(decoded->consumed_bytes);
                 break;
             }
-            case protocol::PacketType::leave_room:
-            {
+            case protocol::PacketType::leave_room: {
                 if (!protocol::validate_empty_payload(decoded->payload))
                 {
                     co_return reject_protocol("leave packet payload must be empty");
@@ -220,6 +228,7 @@ private:
         }
 
         const auto pushed = outbound_queue_.push(std::move(packet));
+        update_queue_metrics();
         if (!pushed)
         {
             if (pushed.error() == OutboundQueueError::byte_limit_exceeded)
@@ -239,30 +248,27 @@ private:
         {
             write_in_progress_ = true;
             auto self = shared_from_this();
-            asio::co_spawn(
-                executor_, write_queued_packets(),
-                [self = std::move(self)](std::exception_ptr exception)
+            asio::co_spawn(executor_, write_queued_packets(), [self = std::move(self)](std::exception_ptr exception) {
+                if (!exception)
                 {
-                    if (!exception)
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    try
-                    {
-                        std::rethrow_exception(exception);
-                    }
-                    catch (const std::exception& error)
-                    {
-                        std::cerr << "session writer stopped by exception: " << error.what() << '\n';
-                    }
-                    catch (...)
-                    {
-                        std::cerr << "session writer stopped by an unknown exception\n";
-                    }
+                try
+                {
+                    std::rethrow_exception(exception);
+                }
+                catch (const std::exception &error)
+                {
+                    std::cerr << "session writer stopped by exception: " << error.what() << '\n';
+                }
+                catch (...)
+                {
+                    std::cerr << "session writer stopped by an unknown exception\n";
+                }
 
-                    self->stop_session(room::DisconnectReason::io_error);
-                });
+                self->stop_session(room::DisconnectReason::io_error);
+            });
         }
 
         return true;
@@ -276,23 +282,28 @@ private:
         while (!stopped_)
         {
             const auto packet_count = outbound_queue_.pop_batch(packet_batch, max_outbound_batch_bytes);
+            update_queue_metrics();
             if (packet_count == 0)
             {
                 write_in_progress_ = false;
                 co_return;
             }
 
+            std::size_t batch_bytes = 0;
             for (std::size_t index = 0; index < packet_count; ++index)
             {
                 write_buffers[index] = asio::buffer(*packet_batch[index]);
+                batch_bytes += packet_batch[index]->size();
             }
 
+            observability::WriteBatch batch{metrics_, packet_count, batch_bytes};
             asio::error_code write_error;
-            co_await asio::async_write(
-                socket_, std::span{write_buffers}.first(packet_count),
-                asio::redirect_error(asio::use_awaitable, write_error));
+            const auto bytes_transferred =
+                co_await asio::async_write(socket_, std::span{write_buffers}.first(packet_count),
+                                           asio::redirect_error(asio::use_awaitable, write_error));
+            batch.complete(bytes_transferred, static_cast<bool>(write_error));
 
-            for (auto& packet : std::span{packet_batch}.first(packet_count))
+            for (auto &packet : std::span{packet_batch}.first(packet_count))
             {
                 packet.reset();
             }
@@ -353,6 +364,11 @@ private:
 
         leave_room_if_joined(reason);
         outbound_queue_.close();
+        update_queue_metrics();
+        if (metrics_ && reason == room::DisconnectReason::outbound_overflow)
+        {
+            metrics_->outbound_overflow();
+        }
 
         asio::error_code ignored;
         socket_.cancel(ignored);
@@ -365,7 +381,8 @@ private:
     ReceiveBuffer receive_buffer_;
     OutboundQueue outbound_queue_;
     room::SessionId session_id_;
-    room::RoomWorker& room_worker_;
+    room::RoomWorker &room_worker_;
+    std::shared_ptr<observability::SessionMetrics> metrics_;
     bool joined_room_ = false;
     bool write_in_progress_ = false;
     bool stopped_ = false;
@@ -373,10 +390,11 @@ private:
 } // namespace
 
 asio::awaitable<void> run_session(asio::ip::tcp::socket socket, room::SessionId session_id,
-                                  room::RoomWorker& room_worker,
-                                  SessionRegistry& session_registry)
+                                  room::RoomWorker &room_worker, SessionRegistry &session_registry)
 {
-    auto session = std::make_shared<Session>(std::move(socket), session_id, room_worker);
+    auto metrics = session_registry.metrics() ? session_registry.metrics()->create_session(session_id.value)
+                                              : std::shared_ptr<observability::SessionMetrics>{};
+    auto session = std::make_shared<Session>(std::move(socket), session_id, room_worker, std::move(metrics));
     if (!session_registry.register_session(session_id, session))
     {
         co_return;

@@ -71,6 +71,10 @@ add_library(
 target_include_directories(mcrs_protocol PUBLIC include)
 target_link_libraries(mcrs_protocol PUBLIC mcrs_project_options)
 
+add_library(mcrs_observability src/observability/server_metrics.cpp)
+target_include_directories(mcrs_observability PUBLIC include)
+target_link_libraries(mcrs_observability PUBLIC mcrs_project_options PRIVATE Threads::Threads)
+
 add_library(
     mcrs_room
     src/room/room.cpp
@@ -82,7 +86,7 @@ add_library(
     include/mcrs/room/room_worker.hpp
 )
 target_include_directories(mcrs_room PUBLIC include)
-target_link_libraries(mcrs_room PUBLIC mcrs_project_options PRIVATE Threads::Threads)
+target_link_libraries(mcrs_room PUBLIC mcrs_project_options mcrs_observability PRIVATE Threads::Threads)
 
 add_library(
     mcrs_network
@@ -118,6 +122,11 @@ target_link_libraries(
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(mcrs_server_metrics_tests tests/server_metrics_tests.cpp)
+    target_link_libraries(mcrs_server_metrics_tests PRIVATE mcrs_observability mcrs_asio)
+    add_test(NAME observability.server_metrics COMMAND mcrs_server_metrics_tests)
+    set_tests_properties(observability.server_metrics PROPERTIES TIMEOUT 10)
+
     add_executable(mcrs_protocol_tests tests/packet_codec_tests.cpp)
     target_link_libraries(mcrs_protocol_tests PRIVATE mcrs_protocol)
     add_test(NAME protocol.codec COMMAND mcrs_protocol_tests)

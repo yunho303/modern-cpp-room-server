@@ -14,6 +14,17 @@
 - coroutine load client and Room broadcast benchmark runner
 - repeatable benchmark matrix script and CSV aggregation
 - 설계 문서의 구조 정리
+- 사용자 제공 보강안과 현재 코드를 대조한 v0.2 계획 및 4주차 코드 질의응답 정리
+- 서버 계측, RAII 기반 대기량 정리, 실제 연결 통계 검증 코드 작성 및 실행 지원
+
+## 2026-09 보강 작업의 실제 역할
+
+- 사용자가 TCP_NODELAY가 기존 결과에 영향을 줄 수 있다는 문제와 운영 안정성 보강 방향을 제시했습니다.
+- Codex가 C/D 조건의 재측정, 전달 경로 계측 구현 및 자동 검증을 수행했습니다. 네 조건 전체 비교나 사용자 본인의
+  직접 구현·실행 경험으로 확대해 서술하지 않습니다.
+- [v0.2 계획](docs/v0.2-operational-plan.md)과 [계측 검증](docs/server-metrics.md)은 구현 근거와 남은 한계를
+  구분한 기록입니다. 아래 Developer responsibility는 검토·학습 책임이며, 각 작업을 이미 직접 수행했다는
+  이력 선언으로 사용하지 않습니다.
 
 ## Developer responsibility
 

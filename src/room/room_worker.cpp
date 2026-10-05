@@ -4,11 +4,14 @@
 
 namespace mcrs::room
 {
-RoomWorker::RoomWorker(RoomEventHandler event_handler)
-    : event_handler_{std::move(event_handler)},
-      worker_{[this](std::stop_token stop_token)
-              { run(stop_token); }}
+RoomWorker::RoomWorker(RoomEventHandler event_handler, std::shared_ptr<observability::ServerMetrics> metrics)
+    : event_handler_{std::move(event_handler)}, metrics_{std::move(metrics)},
+      worker_{[this](std::stop_token stop_token) { run(stop_token); }}
 {
+    if (metrics_)
+    {
+        metrics_->room_opened();
+    }
 }
 
 RoomWorker::~RoomWorker()
@@ -41,6 +44,10 @@ RoomWorkerSummary RoomWorker::stop()
         .rejected_commands = rejected_commands_,
         .event_delivery_failures = event_delivery_failures_,
     };
+    if (metrics_)
+    {
+        metrics_->room_closed();
+    }
     return *stopped_summary_;
 }
 
@@ -50,6 +57,10 @@ void RoomWorker::run(std::stop_token stop_token)
     {
         const auto result = room_.apply(*command);
         ++processed_commands_;
+        if (metrics_)
+        {
+            metrics_->command_processed(!result);
+        }
 
         if (!result)
         {
@@ -66,6 +77,10 @@ void RoomWorker::run(std::stop_token stop_token)
             catch (...)
             {
                 ++event_delivery_failures_;
+                if (metrics_)
+                {
+                    metrics_->event_delivery_failed();
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mcrs/concurrency/closeable_queue.hpp"
+#include "mcrs/observability/server_metrics.hpp"
 #include "mcrs/room/room.hpp"
 
 #include <cstddef>
@@ -13,7 +14,7 @@
 
 namespace mcrs::room
 {
-using RoomEventHandler = std::move_only_function<void(const RoomEvent&)>;
+using RoomEventHandler = std::move_only_function<void(const RoomEvent &)>;
 
 struct RoomWorkerSummary
 {
@@ -25,21 +26,22 @@ struct RoomWorkerSummary
 
 class RoomWorker final
 {
-public:
-    explicit RoomWorker(RoomEventHandler event_handler = {});
+  public:
+    explicit RoomWorker(RoomEventHandler event_handler = {},
+                        std::shared_ptr<observability::ServerMetrics> metrics = {});
     ~RoomWorker();
 
-    RoomWorker(const RoomWorker&) = delete;
-    RoomWorker& operator=(const RoomWorker&) = delete;
-    RoomWorker(RoomWorker&&) = delete;
-    RoomWorker& operator=(RoomWorker&&) = delete;
+    RoomWorker(const RoomWorker &) = delete;
+    RoomWorker &operator=(const RoomWorker &) = delete;
+    RoomWorker(RoomWorker &&) = delete;
+    RoomWorker &operator=(RoomWorker &&) = delete;
 
     [[nodiscard]] std::expected<void, concurrency::QueuePushError> submit(RoomCommand command);
 
     // stop drains commands accepted before close and then transfers a stable snapshot to the caller.
     RoomWorkerSummary stop();
 
-private:
+  private:
     void run(std::stop_token stop_token);
 
     Room room_;
@@ -49,6 +51,7 @@ private:
     std::size_t event_delivery_failures_{};
     std::optional<RoomWorkerSummary> stopped_summary_;
     RoomEventHandler event_handler_;
+    std::shared_ptr<observability::ServerMetrics> metrics_;
     std::jthread worker_;
 };
 } // namespace mcrs::room

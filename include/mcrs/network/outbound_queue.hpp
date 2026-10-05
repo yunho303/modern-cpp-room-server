@@ -39,6 +39,7 @@ public:
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] bool closed() const noexcept;
     [[nodiscard]] std::size_t pending_bytes() const noexcept;
+    [[nodiscard]] std::size_t pending_packets() const noexcept;
     [[nodiscard]] std::size_t max_pending_bytes() const noexcept;
 
 private:

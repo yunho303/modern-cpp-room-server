@@ -92,6 +92,11 @@ std::size_t OutboundQueue::pending_bytes() const noexcept
     return pending_bytes_;
 }
 
+std::size_t OutboundQueue::pending_packets() const noexcept
+{
+    return packets_.size();
+}
+
 std::size_t OutboundQueue::max_pending_bytes() const noexcept
 {
     return max_pending_bytes_;
